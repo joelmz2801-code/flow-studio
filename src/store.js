@@ -4,18 +4,55 @@ import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react'
 let counter = 100
 export const nextId = () => `n${counter++}`
 
+// ── API 预设：持久化到 localStorage ─────────────
+const PRESET_KEY = 'flowstudio.apiPresets.v1'
+
+export const PRESET_FIELDS = ['baseUrl', 'apiKey', 'imageModel', 'videoModel', 'imagePath', 'videoPath']
+
+const DEFAULT_PRESETS = [
+  {
+    id: 'p-openai',
+    name: 'OpenAI 官方',
+    baseUrl: 'https://api.openai.com',
+    apiKey: '',
+    imageModel: 'gpt-image-1',
+    videoModel: 'sora-2',
+    imagePath: '/v1/images/generations',
+    videoPath: '/v1/videos/generations',
+  },
+]
+
+function loadPresets() {
+  try {
+    const raw = localStorage.getItem(PRESET_KEY)
+    if (raw) {
+      const arr = JSON.parse(raw)
+      if (Array.isArray(arr) && arr.length) return arr
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_PRESETS
+}
+
+function persistPresets(presets) {
+  try { localStorage.setItem(PRESET_KEY, JSON.stringify(presets)) } catch { /* ignore */ }
+}
+
+const initialPresets = loadPresets()
+const firstPreset = initialPresets[0]
+
 const initialNodes = [
   {
     id: 'api1',
     type: 'apiConfig',
     position: { x: 40, y: 120 },
     data: {
-      baseUrl: 'https://api.openai.com',
-      apiKey: '',
-      imagePath: '/v1/images/generations',
-      videoPath: '/v1/videos/generations',
-      imageModel: 'gpt-image-1',
-      videoModel: 'sora-2',
+      presetId: firstPreset?.id || '',
+      baseUrl: firstPreset?.baseUrl || 'https://api.openai.com',
+      apiKey: firstPreset?.apiKey || '',
+      imagePath: firstPreset?.imagePath || '/v1/images/generations',
+      videoPath: firstPreset?.videoPath || '/v1/videos/generations',
+      imageModel: firstPreset?.imageModel || 'gpt-image-1',
+      videoModel: firstPreset?.videoModel || 'sora-2',
     },
   },
   { id: 'ref1', type: 'refImage', position: { x: 40, y: 480 }, data: {} },
@@ -43,6 +80,9 @@ const initialEdges = [
 export const useStore = create((set, get) => ({
   nodes: initialNodes,
   edges: initialEdges,
+  presets: initialPresets,
+  settingsOpen: false,
+
   onNodesChange: (changes) => set({ nodes: applyNodeChanges(changes, get().nodes) }),
   onEdgesChange: (changes) => set({ edges: applyEdgeChanges(changes, get().edges) }),
   onConnect: (conn) =>
@@ -57,4 +97,47 @@ export const useStore = create((set, get) => ({
       nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)),
     }),
   addNode: (node) => set({ nodes: [...get().nodes, node] }),
+
+  // ── 设置面板 ──
+  setSettingsOpen: (open) => set({ settingsOpen: open }),
+
+  // ── 预设 CRUD ──
+  addPreset: (preset) => {
+    const presets = [...get().presets, { id: `p${Date.now()}`, name: '新预设', ...preset }]
+    persistPresets(presets)
+    set({ presets })
+  },
+  updatePreset: (id, patch) => {
+    const presets = get().presets.map((p) => (p.id === id ? { ...p, ...patch } : p))
+    persistPresets(presets)
+    set({ presets })
+    // 同步更新所有正在使用该预设的 API 配置节点
+    const updated = presets.find((p) => p.id === id)
+    if (updated) {
+      set({
+        nodes: get().nodes.map((n) =>
+          n.type === 'apiConfig' && n.data.presetId === id
+            ? { ...n, data: { ...n.data, ...pickPresetFields(updated) } }
+            : n,
+        ),
+      })
+    }
+  },
+  removePreset: (id) => {
+    const presets = get().presets.filter((p) => p.id !== id)
+    persistPresets(presets)
+    set({
+      presets,
+      // 使用中的节点转为自定义（保留当前值）
+      nodes: get().nodes.map((n) =>
+        n.type === 'apiConfig' && n.data.presetId === id ? { ...n, data: { ...n.data, presetId: '' } } : n,
+      ),
+    })
+  },
 }))
+
+export function pickPresetFields(preset) {
+  const out = {}
+  for (const k of PRESET_FIELDS) out[k] = preset[k] ?? ''
+  return out
+}

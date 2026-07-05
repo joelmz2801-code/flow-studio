@@ -1,6 +1,6 @@
 import React, { useRef } from 'react'
 import { Handle, Position } from '@xyflow/react'
-import { useStore } from '../store.js'
+import { useStore, pickPresetFields } from '../store.js'
 
 // ── 通用外壳 ──────────────────────────────────
 const STATUS_LABEL = { running: '运行中', done: '完成', error: '出错' }
@@ -66,28 +66,51 @@ function fileToDataUrl(file) {
 // ── API 配置节点 ──────────────────────────────
 export function ApiConfigNode({ id, data }) {
   const up = useUpdate(id)
+  const presets = useStore((s) => s.presets)
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen)
+
+  const onPresetChange = (e) => {
+    const pid = e.target.value
+    if (!pid) { up({ presetId: '' }); return }
+    const p = presets.find((x) => x.id === pid)
+    if (p) up({ presetId: pid, ...pickPresetFields(p) })
+  }
+  // 手动改字段 → 自动脱离预设变为自定义
+  const manual = (patch) => up({ ...patch, presetId: '' })
+
   return (
-    <Shell id={id} accent="blue" icon="⚙️" title="API 配置" subtitle="自定义服务地址与密钥" status={data.status} error={data.error}>
+    <Shell id={id} accent="blue" icon="⚙️" title="API 配置" subtitle="自定义或切换预设" status={data.status} error={data.error}>
+      <Field label="预设">
+        <div className="preset-row">
+          <select className="nodrag" value={data.presetId || ''} onChange={onPresetChange}>
+            <option value="">✏️ 自定义</option>
+            {presets.map((p) => (
+              <option key={p.id} value={p.id}>{p.name || '未命名预设'}</option>
+            ))}
+          </select>
+          <button className="mini-btn nodrag" title="管理预设" onClick={() => setSettingsOpen(true)}>⚙</button>
+        </div>
+      </Field>
       <Field label="Base URL">
-        <input className="nodrag" value={data.baseUrl || ''} placeholder="https://api.example.com" onChange={(e) => up({ baseUrl: e.target.value })} />
+        <input className="nodrag" value={data.baseUrl || ''} placeholder="https://api.example.com" onChange={(e) => manual({ baseUrl: e.target.value })} />
       </Field>
       <Field label="API Key">
-        <input className="nodrag" type="password" value={data.apiKey || ''} placeholder="sk-..." onChange={(e) => up({ apiKey: e.target.value })} />
+        <input className="nodrag" type="password" value={data.apiKey || ''} placeholder="sk-..." onChange={(e) => manual({ apiKey: e.target.value })} />
       </Field>
       <div className="field-row">
         <Field label="图片模型">
-          <input className="nodrag" value={data.imageModel || ''} onChange={(e) => up({ imageModel: e.target.value })} />
+          <input className="nodrag" value={data.imageModel || ''} onChange={(e) => manual({ imageModel: e.target.value })} />
         </Field>
         <Field label="视频模型">
-          <input className="nodrag" value={data.videoModel || ''} onChange={(e) => up({ videoModel: e.target.value })} />
+          <input className="nodrag" value={data.videoModel || ''} onChange={(e) => manual({ videoModel: e.target.value })} />
         </Field>
       </div>
       <div className="field-row">
         <Field label="图片接口路径">
-          <input className="nodrag mono" value={data.imagePath || ''} onChange={(e) => up({ imagePath: e.target.value })} />
+          <input className="nodrag mono" value={data.imagePath || ''} onChange={(e) => manual({ imagePath: e.target.value })} />
         </Field>
         <Field label="视频接口路径">
-          <input className="nodrag mono" value={data.videoPath || ''} onChange={(e) => up({ videoPath: e.target.value })} />
+          <input className="nodrag mono" value={data.videoPath || ''} onChange={(e) => manual({ videoPath: e.target.value })} />
         </Field>
       </div>
       <OutHandle id="config" label="配置" />
@@ -193,7 +216,6 @@ export function PreviewNode({ id, data }) {
     <Shell id={id} accent="purple" icon="👁️" title="预览" subtitle="仅查看 · 不执行保存" status={data.status} error={data.error}>
       <InHandle id="media" label="媒体" top={52} />
       <div className="preview-box">
-        {!media && <span className="hint">运行后在此预览结果</span>}
         {media && (isVideo ? <video src={media} controls autoPlay loop muted /> : <img src={media} alt="预览" />)}
       </div>
     </Shell>

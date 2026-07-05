@@ -12,6 +12,7 @@ import { useStore, nextId } from './store.js'
 import { nodeTypes } from './nodes/index.jsx'
 import { isValidConnection } from './engine/types.js'
 import { runGraph } from './engine/runner.js'
+import SettingsModal from './SettingsModal.jsx'
 
 const PALETTE = [
   { type: 'apiConfig', icon: '⚙️', label: 'API 配置', desc: '自定义 Base URL / Key' },
@@ -36,7 +37,8 @@ const DEFAULT_DATA = {
 }
 
 function Flow() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, updateData } = useStore()
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useStore()
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const { screenToFlowPosition } = useReactFlow()
   const [running, setRunning] = useState(false)
   const [toast, setToast] = useState(null)
@@ -123,8 +125,10 @@ function Flow() {
           <button className={`run-btn ${running ? 'running' : ''}`} onClick={run} disabled={running}>
             {running ? '⏳ 运行中…' : '▶ 运行工作流'}
           </button>
+          <button className="settings-btn" onClick={() => setSettingsOpen(true)}>⚙ 设置</button>
           {toast && <div className={`toast toast-${toast.kind}`}>{toast.text}</div>}
         </div>
+        <SettingsModal />
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -139,9 +143,9 @@ function Flow() {
           proOptions={{ hideAttribution: true }}
           deleteKeyCode={['Backspace', 'Delete']}
         >
-          <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} color="#2c3245" />
+          <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} color="#c9d3e6" />
           <Controls position="bottom-left" />
-          <MiniMap pannable zoomable className="minimap" nodeColor="#4285F4" maskColor="rgba(10,12,20,0.75)" />
+          <MiniMap pannable zoomable className="minimap" nodeColor="#aecbfa" maskColor="rgba(240,244,252,0.8)" />
         </ReactFlow>
       </main>
     </div>
