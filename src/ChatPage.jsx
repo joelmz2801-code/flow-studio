@@ -2,14 +2,44 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from './store.js'
 import { generateImage, downloadMedia } from './engine/runner.js'
 
-const SIZES = ['1024x1024', '1024x1536', '1536x1024', '512x512']
+// ── 画幅比例（附使用场景说明）──────────────────
+const RATIOS = [
+  { id: '1:1', w: 1, h: 1, name: '1:1', label: '方形', desc: '头像 · 社交贴图' },
+  { id: '16:9', w: 16, h: 9, name: '16:9', label: '宽屏', desc: '电脑壁纸 · 视频封面' },
+  { id: '9:16', w: 9, h: 16, name: '9:16', label: '竖屏', desc: '手机壁纸 · 短视频' },
+  { id: '3:4', w: 3, h: 4, name: '3:4', label: '竖幅', desc: '人像拍照 · 种草配图' },
+  { id: '4:3', w: 4, h: 3, name: '4:3', label: '横幅', desc: '风景 · PPT 配图' },
+  { id: '2:3', w: 2, h: 3, name: '2:3', label: '海报', desc: '电影海报 · 印刷物料' },
+]
+
+// ── 风格预设 ──────────────────────────────────
+const STYLES = [
+  { id: 'none', name: '自由发挥', icon: '✨', desc: '不限定风格', prompt: '' },
+  { id: 'photo', name: '写实摄影', icon: '📷', desc: '真实光影质感', prompt: '写实摄影风格，真实细节，专业布光，浅景深，高清质感' },
+  { id: 'anime', name: '动漫插画', icon: '🎏', desc: '日系二次元', prompt: '日系动漫插画风格，精致线条，鲜明色彩，细腻上色' },
+  { id: 'watercolor', name: '水彩手绘', icon: '🖌️', desc: '柔和晕染笔触', prompt: '水彩画风格，柔和晕染，纸张纹理，清透色彩' },
+  { id: 'oil', name: '古典油画', icon: '🖼️', desc: '厚涂经典质感', prompt: '古典油画风格，厚涂笔触，丰富层次，典雅色调' },
+  { id: 'cyber', name: '赛博朋克', icon: '🌃', desc: '霓虹未来都市', prompt: '赛博朋克风格，霓虹灯光，未来都市，电影感氛围' },
+  { id: 'guofeng', name: '国风水墨', icon: '🏮', desc: '工笔意境留白', prompt: '中国风工笔画，水墨意境，留白构图，东方美学' },
+  { id: 'c4d', name: '3D 渲染', icon: '🧊', desc: 'C4D 立体质感', prompt: '3D 渲染，C4D 风格，柔和光影，细腻材质，产品级质感' },
+  { id: 'flat', name: '极简扁平', icon: '🔷', desc: '干净几何插画', prompt: '极简扁平插画风格，几何图形，大面积留白，克制配色' },
+  { id: 'pixel', name: '像素艺术', icon: '👾', desc: '复古游戏像素', prompt: '像素艺术风格，复古游戏画面，8-bit 质感' },
+]
 
 const SUGGESTIONS = [
-  '一只戴着宇航员头盔的柴犬，赛博朋克城市夜景，电影感光效',
-  '水彩风格的江南水乡，清晨薄雾，白墙黛瓦',
-  '未来感极简产品海报，悬浮的透明玻璃立方体，柔和渐变背景',
-  '国风插画：山间仙鹤，云雾缭绕，工笔画质感',
+  { icon: '🚀', text: '一只戴着宇航员头盔的柴犬，赛博朋克城市夜景，电影感光效' },
+  { icon: '🌫️', text: '水彩风格的江南水乡，清晨薄雾，白墙黛瓦' },
+  { icon: '🧊', text: '未来感极简产品海报，悬浮的透明玻璃立方体，柔和渐变背景' },
+  { icon: '🕊️', text: '国风插画：山间仙鹤，云雾缭绕，工笔画质感' },
 ]
+
+// 按目标比例换算像素尺寸（约 100 万像素，对齐 64 的倍数）
+function sizeForRatio(w, h) {
+  const area = 1024 * 1024
+  const W = Math.max(256, Math.round(Math.sqrt((area * w) / h) / 64) * 64)
+  const H = Math.max(256, Math.round(Math.sqrt((area * h) / w) / 64) * 64)
+  return `${W}x${H}`
+}
 
 function fileToDataUrl(file) {
   return new Promise((resolve) => {
@@ -19,18 +49,38 @@ function fileToDataUrl(file) {
   })
 }
 
+// 通用弹出层：点击外部自动关闭
+function usePopover() {
+  const [open, setOpen] = useState(false)
+  const ref = useRef()
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+  return { open, setOpen, ref }
+}
+
 export default function ChatPage({ chatId }) {
   const chats = useStore((s) => s.chats)
   const { createChat, appendMessage, updateMessage, renameChat } = useStore()
   const chat = chats.find((c) => c.id === chatId) || null
 
   const [input, setInput] = useState('')
-  const [size, setSize] = useState('1024x1024')
+  const [ratio, setRatio] = useState(RATIOS[0])
+  const [style, setStyle] = useState(STYLES[0])
+  const [customW, setCustomW] = useState('')
+  const [customH, setCustomH] = useState('')
   const [refs, setRefs] = useState([])
   const [busy, setBusy] = useState(false)
   const fileRef = useRef()
   const scrollRef = useRef()
   const taRef = useRef()
+  const ratioPop = usePopover()
+  const stylePop = usePopover()
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -42,29 +92,44 @@ export default function ChatPage({ chatId }) {
     setRefs((r) => [...r, ...urls].slice(0, 4))
   }
 
+  const applyCustomRatio = () => {
+    const w = parseInt(customW, 10)
+    const h = parseInt(customH, 10)
+    if (!w || !h || w <= 0 || h <= 0) return
+    const g = ((a, b) => (b ? g(b, a % b) : a))(w, h)
+    setRatio({ id: 'custom', w: w / g, h: h / g, name: `${w}:${h}`, label: '自定义', desc: '' })
+    ratioPop.setOpen(false)
+  }
+
   const send = async (textOverride) => {
     const text = (textOverride ?? input).trim()
     if (!text || busy) return
     let id = chatId
     if (!chat) id = createChat()
 
-    const userMsg = { id: `m${Date.now()}u`, role: 'user', text, refs, time: Date.now() }
+    const userMsg = {
+      id: `m${Date.now()}u`, role: 'user', text, refs, time: Date.now(),
+      meta: [ratio.name !== '1:1' ? `画幅 ${ratio.name}` : '', style.id !== 'none' ? style.name : ''].filter(Boolean),
+    }
     appendMessage(id, userMsg)
 
-    // 首条消息作为会话标题
     const current = useStore.getState().chats.find((c) => c.id === id)
     if (current && current.messages.length <= 1) {
       renameChat(id, text.slice(0, 24))
     }
 
     const aiId = `m${Date.now()}a`
-    appendMessage(id, { id: aiId, role: 'assistant', status: 'loading', text: '', images: [], time: Date.now() })
+    appendMessage(id, {
+      id: aiId, role: 'assistant', status: 'loading', text: '', images: [],
+      ratio: { w: ratio.w, h: ratio.h }, time: Date.now(),
+    })
 
     setInput('')
     setRefs([])
     setBusy(true)
     try {
-      const img = await generateImage({ prompt: text, size, refs })
+      const prompt = style.prompt ? `${text}\n\n画面风格：${style.prompt}` : text
+      const img = await generateImage({ prompt, size: sizeForRatio(ratio.w, ratio.h), refs })
       updateMessage(id, aiId, { status: 'done', images: [img], text: '' })
     } catch (err) {
       updateMessage(id, aiId, { status: 'error', text: err.message })
@@ -92,10 +157,12 @@ export default function ChatPage({ chatId }) {
               <span className="dot dot-b" /><span className="dot dot-r" /><span className="dot dot-y" /><span className="dot dot-g" />
             </div>
             <h2>今天想创作点什么？</h2>
-            <p>输入描述即可生成图片，也可以附上参考图</p>
+            <p>描述画面，挑一个画幅和风格，剩下的交给我</p>
             <div className="hero-suggestions">
               {SUGGESTIONS.map((sg) => (
-                <button key={sg} className="suggestion" onClick={() => send(sg)}>{sg}</button>
+                <button key={sg.text} className="suggestion" onClick={() => send(sg.text)}>
+                  <span className="sg-icon">{sg.icon}</span>{sg.text}
+                </button>
               ))}
             </div>
           </div>
@@ -129,13 +196,72 @@ export default function ChatPage({ chatId }) {
             onKeyDown={onKeyDown}
           />
           <div className="composer-bar">
-            <button className="tool-btn" title="添加参考图（最多 4 张）" onClick={() => fileRef.current?.click()}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-              参考图
+            {/* 回形针：上传参考图 */}
+            <button className="icon-btn" title="添加参考图（最多 4 张）" onClick={() => fileRef.current?.click()}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
             </button>
-            <select className="size-select" value={size} onChange={(e) => setSize(e.target.value)} title="图片尺寸">
-              {SIZES.map((s) => <option key={s}>{s}</option>)}
-            </select>
+
+            {/* 画幅比例选择 */}
+            <div className="pop-anchor" ref={ratioPop.ref}>
+              <button className={`pill-btn ${ratioPop.open ? 'active' : ''}`} onClick={() => ratioPop.setOpen(!ratioPop.open)}>
+                <RatioIcon w={ratio.w} h={ratio.h} />
+                {ratio.name}
+              </button>
+              {ratioPop.open && (
+                <div className="popover">
+                  <div className="pop-title">画幅比例</div>
+                  {RATIOS.map((r) => (
+                    <button
+                      key={r.id}
+                      className={`pop-item ${ratio.id === r.id ? 'selected' : ''}`}
+                      onClick={() => { setRatio(r); ratioPop.setOpen(false) }}
+                    >
+                      <RatioIcon w={r.w} h={r.h} />
+                      <span className="pop-item-main">
+                        <b>{r.name} <em>{r.label}</em></b>
+                        <small>{r.desc}</small>
+                      </span>
+                      {ratio.id === r.id && <span className="pop-check">✓</span>}
+                    </button>
+                  ))}
+                  <div className="pop-divider" />
+                  <div className="pop-custom">
+                    <span>自定义</span>
+                    <input type="number" min="1" placeholder="宽" value={customW} onChange={(e) => setCustomW(e.target.value)} />
+                    <i>:</i>
+                    <input type="number" min="1" placeholder="高" value={customH} onChange={(e) => setCustomH(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && applyCustomRatio()} />
+                    <button onClick={applyCustomRatio} disabled={!parseInt(customW, 10) || !parseInt(customH, 10)}>应用</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 风格选择 */}
+            <div className="pop-anchor" ref={stylePop.ref}>
+              <button className={`pill-btn ${stylePop.open ? 'active' : ''}`} onClick={() => stylePop.setOpen(!stylePop.open)}>
+                <span className="pill-emoji">{style.icon}</span>
+                {style.id === 'none' ? '风格' : style.name}
+              </button>
+              {stylePop.open && (
+                <div className="popover popover-styles">
+                  <div className="pop-title">画面风格</div>
+                  <div className="style-grid">
+                    {STYLES.map((st) => (
+                      <button
+                        key={st.id}
+                        className={`style-card ${style.id === st.id ? 'selected' : ''}`}
+                        onClick={() => { setStyle(st); stylePop.setOpen(false) }}
+                      >
+                        <span className="style-icon">{st.icon}</span>
+                        <b>{st.name}</b>
+                        <small>{st.desc}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="spacer" />
             <button
               className={`send-btn ${busy ? 'busy' : ''}`}
@@ -146,7 +272,7 @@ export default function ChatPage({ chatId }) {
               {busy ? (
                 <span className="spinner" />
               ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z" /></svg>
               )}
             </button>
           </div>
@@ -155,6 +281,21 @@ export default function ChatPage({ chatId }) {
         <div className="composer-hint">生成结果由 AI 模型生成 · 请遵守相关法律法规</div>
       </div>
     </div>
+  )
+}
+
+// 按比例绘制的小示意框
+function RatioIcon({ w, h }) {
+  const max = 14
+  const rw = w >= h ? max : Math.max(6, Math.round((max * w) / h))
+  const rh = h >= w ? max : Math.max(6, Math.round((max * h) / w))
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18">
+      <rect
+        x={(18 - rw) / 2} y={(18 - rh) / 2} width={rw} height={rh}
+        rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.6"
+      />
+    </svg>
   )
 }
 
@@ -169,10 +310,15 @@ function Message({ m }) {
             </div>
           )}
           {m.text}
+          {m.meta?.length > 0 && (
+            <div className="msg-meta">{m.meta.map((t) => <span key={t}>{t}</span>)}</div>
+          )}
         </div>
       </div>
     )
   }
+
+  const ar = m.ratio ? `${m.ratio.w} / ${m.ratio.h}` : '1 / 1'
   return (
     <div className="msg msg-ai">
       <div className="ai-avatar">
@@ -180,27 +326,52 @@ function Message({ m }) {
       </div>
       <div className="bubble bubble-ai">
         {m.status === 'loading' && (
-          <div className="gen-loading">
-            <span className="spinner spinner-blue" />
-            正在生成图片，请稍候…
+          <div className="gen-frame" style={{ aspectRatio: ar }}>
+            <div className="gen-mist" />
+            <div className="gen-sheen" />
+            <div className="gen-frame-label">
+              <span className="spinner spinner-blue" />
+              正在绘制…
+            </div>
           </div>
         )}
         {m.status === 'error' && <div className="gen-error">⚠ 生成失败：{m.text}</div>}
         {m.images?.filter(Boolean).map((img, i) => (
-          <div key={i} className="gen-image">
-            <img src={img} alt="生成结果" />
-            <div className="gen-actions">
-              <button onClick={() => downloadMedia(img, `flow-studio-${Date.now()}`)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                下载
-              </button>
-            </div>
-          </div>
+          <RevealImage key={i} src={img} ratio={ar} />
         ))}
         {m.status === 'done' && m.images?.filter(Boolean).length === 0 && (
           <div className="gen-error">（图片数据未保留，仅保存了会话记录）</div>
         )}
       </div>
+    </div>
+  )
+}
+
+// 图片加载完成后：先模糊显现，再逐渐晕染清晰
+function RevealImage({ src, ratio }) {
+  const [loaded, setLoaded] = useState(false)
+  return (
+    <div className="gen-image" style={!loaded ? { aspectRatio: ratio } : undefined}>
+      {!loaded && (
+        <div className="gen-frame gen-frame-fill">
+          <div className="gen-mist" />
+          <div className="gen-sheen" />
+        </div>
+      )}
+      <img
+        src={src}
+        alt="生成结果"
+        className={loaded ? 'reveal' : 'pending'}
+        onLoad={() => setLoaded(true)}
+      />
+      {loaded && (
+        <div className="gen-actions">
+          <button onClick={() => downloadMedia(src, `joel-flow-studio-${Date.now()}`)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+            下载
+          </button>
+        </div>
+      )}
     </div>
   )
 }

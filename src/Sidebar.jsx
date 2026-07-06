@@ -58,7 +58,7 @@ export default function Sidebar() {
           <span className="dot dot-b" /><span className="dot dot-r" /><span className="dot dot-y" /><span className="dot dot-g" />
         </div>
         <div className="brand-text">
-          <h1>Flow Studio</h1>
+          <h1>Joel Flow Studio</h1>
           <p>AI 创作工作台</p>
         </div>
         <button className="icon-btn sb-toggle" onClick={toggleSidebar} title="收起侧边栏">
