@@ -4,11 +4,7 @@ import { supabase, isAuthEnabled } from './lib/supabase.js'
 function translateAuthError(msg) {
   const lower = msg.toLowerCase()
   if (lower.includes('rate limit'))
-    return '操作太频繁，请等待 1~2 分钟后重试。建议在 Supabase Dashboard → Authentication → Settings 中关闭 "Confirm email" 以避免频率限制。'
-  if (lower.includes('invalid login credentials'))
-    return '邮箱或密码错误'
-  if (lower.includes('user already registered') || lower.includes('already been registered'))
-    return '该邮箱已注册，请直接登录'
+    return '操作太频繁，请等待 1~2 分钟后重试'
   if (lower.includes('password') && lower.includes('6'))
     return '密码至少需要 6 位'
   if (lower.includes('invalid email') || lower.includes('email is invalid'))
@@ -17,42 +13,35 @@ function translateAuthError(msg) {
     return '注册功能已关闭，请联系管理员'
   if (lower.includes('network') || lower.includes('fetch'))
     return '网络连接失败，请检查网络后重试'
+  if (lower.includes('email not confirmed'))
+    return '邮箱未验证，请检查收件箱中的确认邮件'
   return msg || '操作失败，请稍后重试'
 }
 
 export default function AuthPage() {
-  const [mode, setMode] = useState('login') // 'login' | 'signup'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [info, setInfo] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!supabase) {
-      setError('Supabase 未配置，请设置 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY')
+      setError('Supabase 未配置')
       return
     }
     setLoading(true)
     setError('')
-    setInfo('')
     try {
-      if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (!signInError) return
+
+      const msg = (signInError.message || '').toLowerCase()
+      if (msg.includes('invalid login credentials')) {
+        const { error: signUpError } = await supabase.auth.signUp({ email, password })
+        if (signUpError) throw signUpError
       } else {
-        const { data, error } = await supabase.auth.signUp({ email, password })
-        if (error) throw error
-        if (data?.user) {
-          if (data.user.identities?.length === 0) {
-            setError('该邮箱已注册，请直接登录')
-            setMode('login')
-          } else if (!data.session) {
-            setInfo('注册成功！请检查邮箱确认链接后登录。')
-            setMode('login')
-          }
-        }
+        throw signInError
       }
     } catch (err) {
       setError(translateAuthError(err.message || ''))
@@ -80,34 +69,9 @@ export default function AuthPage() {
           <span className="dot dot-b" /><span className="dot dot-r" /><span className="dot dot-y" /><span className="dot dot-g" />
         </div>
         <h1 className="auth-title">Joel Flow Studio</h1>
-        <p className="auth-subtitle">AI 创作工作台 · 登录后开始创作</p>
-
-        {!isAuthEnabled && (
-          <div className="auth-warning">
-            <p>⚠️ Supabase 尚未配置</p>
-            <p className="auth-warning-desc">
-              请在项目根目录创建 <code>.env</code> 文件，添加以下变量后重启服务：
-            </p>
-            <pre className="auth-env-example">{`VITE_SUPABASE_URL=https://xxx.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOi...`}</pre>
-            <p className="auth-warning-desc">配置前可继续以访客身份使用。</p>
-          </div>
-        )}
+        <p className="auth-subtitle">AI 创作工作台 · 输入邮箱和密码进入</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <div className="auth-tabs">
-            <button
-              type="button"
-              className={`auth-tab ${mode === 'login' ? 'active' : ''}`}
-              onClick={() => { setMode('login'); setError(''); setInfo('') }}
-            >登录</button>
-            <button
-              type="button"
-              className={`auth-tab ${mode === 'signup' ? 'active' : ''}`}
-              onClick={() => { setMode('signup'); setError(''); setInfo('') }}
-            >注册</button>
-          </div>
-
           <label className="auth-field">
             <span>邮箱</span>
             <input
@@ -129,15 +93,14 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOi...`}</pre>
               placeholder="至少 6 位"
               required
               minLength={6}
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              autoComplete="current-password"
             />
           </label>
 
           {error && <div className="auth-error">{error}</div>}
-          {info && <div className="auth-info">{info}</div>}
 
           <button type="submit" className="auth-submit" disabled={loading || !isAuthEnabled}>
-            {loading ? '处理中…' : mode === 'login' ? '登录' : '注册'}
+            {loading ? '处理中…' : '进入'}
           </button>
         </form>
 
