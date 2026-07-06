@@ -1,8 +1,28 @@
 import { create } from 'zustand'
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react'
+import { loadChatsFromCloud, saveChatToCloud, deleteChatFromCloud, loadPresetsFromCloud, savePresetToCloud, deletePresetFromCloud } from './lib/sync.js'
 
 let counter = 100
 export const nextId = () => `n${counter++}`
+
+let _syncUserId = null
+let _saveTimers = {}
+
+function debouncedSaveChat(chat) {
+  if (!_syncUserId) return
+  clearTimeout(_saveTimers[chat.id])
+  _saveTimers[chat.id] = setTimeout(() => {
+    saveChatToCloud(chat, _syncUserId)
+  }, 800)
+}
+
+function debouncedSavePreset(preset) {
+  if (!_syncUserId) return
+  clearTimeout(_saveTimers[preset.id])
+  _saveTimers[preset.id] = setTimeout(() => {
+    savePresetToCloud(preset, _syncUserId)
+  }, 800)
+}
 
 // ── API 预设：持久化到 localStorage ─────────────
 const PRESET_KEY = 'flowstudio.apiPresets.v1'
@@ -171,6 +191,7 @@ export const useStore = create((set, get) => ({
     const chats = [chat, ...get().chats]
     persistChats(chats)
     set({ chats, activeView: { type: 'chat', id: chat.id } })
+    debouncedSaveChat(chat)
     return chat.id
   },
   removeChat: (id) => {
@@ -184,11 +205,14 @@ export const useStore = create((set, get) => ({
           ? { type: 'chat', id: chats[0]?.id || null }
           : av,
     })
+    deleteChatFromCloud(id, _syncUserId)
   },
   renameChat: (id, title) => {
     const chats = get().chats.map((c) => (c.id === id ? { ...c, title } : c))
     persistChats(chats)
     set({ chats })
+    const chat = chats.find((c) => c.id === id)
+    if (chat) debouncedSaveChat(chat)
   },
   appendMessage: (chatId, message) => {
     const chats = get().chats.map((c) =>
@@ -196,6 +220,8 @@ export const useStore = create((set, get) => ({
     )
     persistChats(chats)
     set({ chats })
+    const chat = chats.find((c) => c.id === chatId)
+    if (chat) debouncedSaveChat(chat)
   },
   updateMessage: (chatId, msgId, patch) => {
     const chats = get().chats.map((c) =>
@@ -205,6 +231,8 @@ export const useStore = create((set, get) => ({
     )
     persistChats(chats)
     set({ chats })
+    const chat = chats.find((c) => c.id === chatId)
+    if (chat) debouncedSaveChat(chat)
   },
 
   onNodesChange: (changes) => set({ nodes: applyNodeChanges(changes, get().nodes) }),
@@ -230,14 +258,16 @@ export const useStore = create((set, get) => ({
     const presets = [...get().presets, { id: `p${Date.now()}`, name: '新预设', ...preset }]
     persistPresets(presets)
     set({ presets })
+    const added = presets[presets.length - 1]
+    debouncedSavePreset(added)
   },
   updatePreset: (id, patch) => {
     const presets = get().presets.map((p) => (p.id === id ? { ...p, ...patch } : p))
     persistPresets(presets)
     set({ presets })
-    // 同步更新所有正在使用该预设的 API 配置节点
     const updated = presets.find((p) => p.id === id)
     if (updated) {
+      debouncedSavePreset(updated)
       set({
         nodes: get().nodes.map((n) =>
           n.type === 'apiConfig' && n.data.presetId === id
@@ -252,11 +282,11 @@ export const useStore = create((set, get) => ({
     persistPresets(presets)
     set({
       presets,
-      // 使用中的节点转为自定义（保留当前值）
       nodes: get().nodes.map((n) =>
         n.type === 'apiConfig' && n.data.presetId === id ? { ...n, data: { ...n.data, presetId: '' } } : n,
       ),
     })
+    deletePresetFromCloud(id, _syncUserId)
   },
 }))
 
@@ -264,4 +294,51 @@ export function pickPresetFields(preset) {
   const out = {}
   for (const k of PRESET_FIELDS) out[k] = preset[k] ?? ''
   return out
+}
+
+export async function syncFromCloud(userId) {
+  _syncUserId = userId
+  const store = useStore.getState()
+
+  const [cloudChats, cloudPresets] = await Promise.all([
+    loadChatsFromCloud(userId),
+    loadPresetsFromCloud(userId),
+  ])
+
+  if (cloudChats && cloudChats.length > 0) {
+    const localIds = new Set(store.chats.map(c => c.id))
+    const merged = [...cloudChats]
+    for (const local of store.chats) {
+      if (!cloudChats.find(c => c.id === local.id)) {
+        merged.push(local)
+        saveChatToCloud(local, userId)
+      }
+    }
+    persistChats(merged)
+    useStore.setState({ chats: merged })
+  } else if (cloudChats && cloudChats.length === 0 && store.chats.length > 0) {
+    for (const chat of store.chats) {
+      saveChatToCloud(chat, userId)
+    }
+  }
+
+  if (cloudPresets && cloudPresets.length > 0) {
+    const merged = [...cloudPresets]
+    for (const local of store.presets) {
+      if (!cloudPresets.find(p => p.id === local.id)) {
+        merged.push(local)
+        savePresetToCloud(local, userId)
+      }
+    }
+    persistPresets(merged)
+    useStore.setState({ presets: merged })
+  } else if (cloudPresets && cloudPresets.length === 0 && store.presets.length > 0) {
+    for (const preset of store.presets) {
+      savePresetToCloud(preset, userId)
+    }
+  }
+}
+
+export function setSyncUserId(userId) {
+  _syncUserId = userId
 }

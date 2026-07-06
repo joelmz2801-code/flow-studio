@@ -1,6 +1,7 @@
-import React from 'react'
-import { useStore } from './store.js'
+import React, { useEffect } from 'react'
+import { useStore, syncFromCloud } from './store.js'
 import { useAuth } from './useAuth.js'
+import { subscribeToChanges } from './lib/sync.js'
 import Sidebar from './Sidebar.jsx'
 import ChatPage from './ChatPage.jsx'
 import FlowPage from './FlowPage.jsx'
@@ -13,6 +14,17 @@ export default function App() {
   const mobileNavOpen = useStore((s) => s.mobileNavOpen)
   const setMobileNavOpen = useStore((s) => s.setMobileNavOpen)
   const { user, loading, isAuthEnabled } = useAuth()
+
+  useEffect(() => {
+    if (!user) return
+    syncFromCloud(user.id)
+    const unsub = subscribeToChanges(user.id, () => {
+      syncFromCloud(user.id)
+    }, () => {
+      syncFromCloud(user.id)
+    })
+    return unsub
+  }, [user?.id])
 
   // 加载中
   if (loading) {
