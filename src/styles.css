@@ -1393,5 +1393,135 @@ textarea { resize: vertical; line-height: 1.5; }
   font-weight: 600;
 }
 
+/* ═══════════════════════════════════════════
+   v8 · Settings & Model Selector Redesign
+   ═══════════════════════════════════════════ */
+
+/* ── Settings section headers ── */
+.settings-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-section:last-child { border-bottom: none; padding-bottom: 0; }
+.settings-section-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+}
+.settings-section-icon {
+  width: 30px; height: 30px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.settings-section-icon.blue { background: #e8f0fe; color: #1a73e8; }
+.settings-section-icon.purple { background: #f3e8ff; color: #7c4dff; }
+.settings-section-title {
+  font-size: 13.5px; font-weight: 700; color: var(--text);
+}
+.settings-section-desc {
+  font-size: 11px; color: var(--muted); margin-top: 1px;
+}
+
+/* ── Model type badges ── */
+.model-type-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px; letter-spacing: 0.5px;
+  flex-shrink: 0; line-height: 1.4;
+}
+.model-type-badge.image { background: #e8f0fe; color: #1a73e8; }
+.model-type-badge.video { background: #f3e8ff; color: #7c4dff; }
+.model-type-badge.chat  { background: #e6f4ea; color: #188038; }
+
+/* ── Clean SVG action buttons (replacing emoji) ── */
+.model-act-btn {
+  width: 28px; height: 28px; border-radius: 7px;
+  border: 1px solid transparent; background: transparent;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: #9aa3b5; transition: all 0.15s ease;
+}
+.model-act-btn:hover { background: #f1f3f8; color: var(--text); }
+.model-act-btn.active-vis { background: #e8f0fe; border-color: #aecbfa; color: #1a73e8; }
+.model-act-btn.active-def { background: #fef7e0; border-color: #fde293; color: #b06000; }
+.model-act-btn.danger:hover { background: #fce8e6; color: var(--red); }
+.model-act-btn .type-label {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+}
+
+/* ── Settings model row redesign ── */
+.settings-model-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f3f5f8;
+  transition: background 0.12s ease;
+}
+.settings-model-row:hover { background: #f8faff; }
+.settings-model-row:last-child { border-bottom: none; }
+.settings-model-info {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.settings-model-name-text {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 12px; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.settings-model-actions {
+  display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+}
+
+/* ── Model type group container ── */
+.model-type-group {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+.model-type-group-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  background: #fafbfe;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--muted);
+}
+.model-type-group-count {
+  margin-left: auto;
+  font-size: 10px; font-weight: 600;
+  background: #e3e8f2; color: var(--muted);
+  padding: 1px 7px; border-radius: 999px;
+}
+.model-type-group-body {
+  display: flex; flex-direction: column;
+}
+
+/* ── Chat model selector redesign ── */
+.chat-model-group {
+  padding: 4px 0;
+}
+.chat-model-group-title {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px 4px;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--muted);
+}
+.chat-model-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 10px;
+  cursor: pointer; transition: background 0.12s ease;
+  border: none; background: transparent; width: 100%;
+  text-align: left; color: var(--text);
+  font-family: inherit;
+}
+.chat-model-item:hover { background: #f4f7fc; }
+.chat-model-item.selected { background: #eef4ff; color: #1a56b8; }
+.chat-model-item-info {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.chat-model-item-label { font-size: 13px; font-weight: 600; }
+.chat-model-item-desc { font-size: 11px; color: #9aa3b2; }
+
 
 

@@ -350,7 +350,7 @@ export default function ChatPage({ chatId }) {
               </button>
               {modelPop.open && (
                 <div className="popover popover-models">
-                  <div className="pop-title">生图模型</div>
+                  <div className="pop-title">选择模型</div>
                   <input
                     className="model-search"
                     placeholder="搜索或输入自定义模型…"
@@ -366,31 +366,41 @@ export default function ChatPage({ chatId }) {
                         (m) => !q || m.id.toLowerCase().includes(q) || m.label.toLowerCase().includes(q)
                       )
                       
-                      const builtins = filtered.filter(m => m.isBuiltin)
-                      const customs = filtered.filter(m => !m.isBuiltin)
+                      // Group by type instead of source
+                      const TYPE_GROUPS = [
+                        { type: 'image', label: '图片模型', icon: '🖼' },
+                        { type: 'video', label: '视频模型', icon: '🎬' },
+                        { type: 'chat',  label: '文本模型', icon: '💬' },
+                      ]
+                      const groups = TYPE_GROUPS.map(g => ({
+                        ...g,
+                        items: filtered.filter(m => (m.type || 'image') === g.type),
+                      })).filter(g => g.items.length > 0)
                       
                       return (
                         <>
-                          {builtins.length > 0 && <div className="model-group">内置模型</div>}
-                          {builtins.map((b) => (
-                            <button key={b.id} className={`pop-item model-item ${model === b.id ? 'selected' : ''}`} onClick={() => pickModel(b.id)}>
-                              <span className="pop-item-main">
-                                <b>{b.label}</b>
-                                <small>{b.desc}</small>
-                              </span>
-                              {model === b.id && <span className="pop-check">✓</span>}
-                            </button>
-                          ))}
-                          
-                          {customs.length > 0 && <div className="model-group">自定义模型</div>}
-                          {customs.map((c) => (
-                            <button key={c.id} className={`pop-item model-item ${model === c.id ? 'selected' : ''}`} onClick={() => pickModel(c.id)}>
-                              <span className="pop-item-main">
-                                <b>{c.label}</b>
-                                <small>{c.desc}</small>
-                              </span>
-                              {model === c.id && <span className="pop-check">✓</span>}
-                            </button>
+                          {groups.map((g) => (
+                            <div key={g.type} className="chat-model-group">
+                              <div className="chat-model-group-title">
+                                <span>{g.icon}</span>
+                                <span>{g.label}</span>
+                                <span className="model-type-group-count">{g.items.length}</span>
+                              </div>
+                              {g.items.map((m) => (
+                                <button
+                                  key={m.id}
+                                  className={`chat-model-item ${model === m.id ? 'selected' : ''}`}
+                                  onClick={() => pickModel(m.id)}
+                                >
+                                  <span className={`model-type-badge ${m.type || 'image'}`}>{m.type || 'image'}</span>
+                                  <span className="chat-model-item-info">
+                                    <span className="chat-model-item-label">{m.label}</span>
+                                    <span className="chat-model-item-desc">{m.desc}</span>
+                                  </span>
+                                  {model === m.id && <span className="pop-check">✓</span>}
+                                </button>
+                              ))}
+                            </div>
                           ))}
                           
                           {filtered.length === 0 && (
