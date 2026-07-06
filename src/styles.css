@@ -959,6 +959,7 @@ textarea { resize: vertical; line-height: 1.5; }
 @keyframes plibIn { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
 
 .plib-head {
+  flex: none;
   display: flex; align-items: center; gap: 10px;
   padding: 16px 18px 10px;
 }
@@ -975,6 +976,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .plib-close:hover { background: rgba(0,0,0,0.06); }
 
 .plib-search {
+  flex: none;
   display: flex; align-items: center; gap: 8px;
   margin: 0 18px 10px; padding: 8px 12px;
   border: 1px solid var(--border, #e3e6ee); border-radius: 11px;
@@ -986,6 +988,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .plib-cats {
   display: flex; gap: 7px; overflow-x: auto;
   padding: 2px 18px 12px; scrollbar-width: none;
+  flex: none; /* 不被下方卡片区压缩，修复标签显示不完整 */
 }
 .plib-cats::-webkit-scrollbar { display: none; }
 .plib-cat {
@@ -996,7 +999,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .plib-cat:hover { border-color: #c6d4ef; }
 .plib-cat.active { border-color: #1a73e8; background: #eef4ff; color: #1a73e8; font-weight: 600; }
 
-.plib-mine-add { display: flex; gap: 8px; padding: 0 18px 12px; align-items: flex-end; }
+.plib-mine-add { flex: none; display: flex; gap: 8px; padding: 0 18px 12px; align-items: flex-end; }
 .plib-mine-add textarea {
   flex: 1; resize: none; border: 1px solid var(--border, #e3e6ee); border-radius: 11px;
   padding: 9px 12px; font-size: 13px; font-family: inherit; outline: none;
