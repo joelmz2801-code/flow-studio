@@ -1,12 +1,25 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useStore } from './store.js'
+
+function useIsMobile() {
+  const [m, setM] = useState(() => window.matchMedia('(max-width: 768px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const fn = (e) => setM(e.matches)
+    mq.addEventListener('change', fn)
+    return () => mq.removeEventListener('change', fn)
+  }, [])
+  return m
+}
 
 export default function Sidebar() {
   const {
-    chats, activeView, sidebarCollapsed, searchQuery,
-    setActiveView, toggleSidebar, setSearchQuery,
+    chats, activeView, sidebarCollapsed, searchQuery, mobileNavOpen,
+    setActiveView, toggleSidebar, setSearchQuery, setMobileNavOpen,
     createChat, removeChat, setSettingsOpen,
   } = useStore()
+  const isMobile = useIsMobile()
+  const closeNav = () => { if (isMobile) setMobileNavOpen(false) }
 
   const q = searchQuery.trim().toLowerCase()
   const filteredChats = q
@@ -20,7 +33,7 @@ export default function Sidebar() {
 
   const isFlow = activeView.type === 'flow'
 
-  if (sidebarCollapsed) {
+  if (sidebarCollapsed && !isMobile) {
     return (
       <aside className="sidebar collapsed">
         <button className="icon-btn sb-toggle" onClick={toggleSidebar} title="展开侧边栏">
@@ -52,7 +65,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isMobile && mobileNavOpen ? 'mobile-open' : ''}`}>
       <div className="brand">
         <div className="brand-logo">
           <span className="dot dot-b" /><span className="dot dot-r" /><span className="dot dot-y" /><span className="dot dot-g" />
@@ -61,12 +74,12 @@ export default function Sidebar() {
           <h1>Joel Flow Studio</h1>
           <p>AI 创作工作台</p>
         </div>
-        <button className="icon-btn sb-toggle" onClick={toggleSidebar} title="收起侧边栏">
+        <button className="icon-btn sb-toggle" onClick={() => (isMobile ? closeNav() : toggleSidebar())} title="收起侧边栏">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
       </div>
 
-      <button className="new-chat-btn" onClick={createChat}>
+      <button className="new-chat-btn" onClick={() => { createChat(); closeNav() }}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
         新对话
       </button>
@@ -88,7 +101,7 @@ export default function Sidebar() {
         {showFlow && (
           <button
             className={`sb-item ${isFlow ? 'active' : ''}`}
-            onClick={() => setActiveView({ type: 'flow' })}
+            onClick={() => { setActiveView({ type: 'flow' }); closeNav() }}
           >
             <span className="sb-item-icon">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 8.5 15.5 15.5" strokeLinecap="round"/></svg>
@@ -107,7 +120,7 @@ export default function Sidebar() {
           <button
             key={c.id}
             className={`sb-item ${!isFlow && activeView.id === c.id ? 'active' : ''}`}
-            onClick={() => setActiveView({ type: 'chat', id: c.id })}
+            onClick={() => { setActiveView({ type: 'chat', id: c.id }); closeNav() }}
           >
             <span className="sb-item-icon">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -125,7 +138,7 @@ export default function Sidebar() {
       </div>
 
       <div className="sb-foot">
-        <button className="sb-item sb-settings" onClick={() => setSettingsOpen(true)}>
+        <button className="sb-item sb-settings" onClick={() => { setSettingsOpen(true); closeNav() }}>
           <span className="sb-item-icon">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </span>

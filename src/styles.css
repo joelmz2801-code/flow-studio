@@ -21,6 +21,11 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
+html, body {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
 body {
   font-family: 'Google Sans Text', 'Noto Sans SC', system-ui, sans-serif;
   background: var(--bg);
@@ -28,7 +33,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.app { display: flex; height: 100vh; }
+.app { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
 
 /* ── 侧边栏 ─────────────────────────── */
 .sidebar {
@@ -750,4 +755,102 @@ textarea { resize: vertical; line-height: 1.5; }
   30% { opacity: 1; }
   60% { filter: blur(10px) saturate(1.25) brightness(1.04); }
   100% { opacity: 1; filter: blur(0) saturate(1) brightness(1); transform: scale(1); }
+}
+
+/* ═══════════════════════════════════════════
+   v4 · 移动端适配
+   ═══════════════════════════════════════════ */
+.mobile-topbar { display: none; }
+.nav-backdrop { display: none; }
+
+@media (max-width: 768px) {
+  /* ── 顶栏（含菜单按钮）── */
+  .mobile-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    position: fixed; top: 0; left: 0; right: 0; height: 52px;
+    padding: 0 10px calc(0px);
+    padding-top: env(safe-area-inset-top);
+    background: rgba(246, 248, 253, 0.92);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    z-index: 30;
+  }
+  .mobile-topbar .icon-btn {
+    width: 34px; height: 34px; border: none; background: transparent;
+    color: var(--text); cursor: pointer; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mobile-title {
+    font-size: 15px; font-weight: 700; letter-spacing: 0.2px;
+    background: linear-gradient(90deg, #1a73e8, #7c4dff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  /* ── 侧边栏 → 抽屉，默认隐藏 ── */
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: min(82vw, 300px);
+    transform: translateX(-105%);
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: none;
+    padding-top: calc(22px + env(safe-area-inset-top));
+    z-index: 50;
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: var(--shadow-lg);
+  }
+  .nav-backdrop {
+    display: block; position: fixed; inset: 0;
+    background: rgba(24, 30, 46, 0.4);
+    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+    z-index: 40;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ── 主区域给顶栏让位 ── */
+  .main-area { padding-top: calc(52px + env(safe-area-inset-top)); width: 100%; min-width: 0; }
+
+
+  /* ── 输入区：去边框、全宽、贴合底部 ── */
+  .composer-wrap {
+    padding: 6px 0 0;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+  }
+  .composer {
+    max-width: none; margin: 0;
+    border: none; border-radius: 0;
+    box-shadow: none;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  }
+  .composer:focus-within { border-color: transparent; }
+  .composer textarea { font-size: 16px; } /* 16px 防止 iOS 聚焦自动放大 */
+  .composer-hint { display: none; }
+
+  /* ── 消息与图片比例适配 ── */
+  .chat-scroll { padding-left: 14px; padding-right: 14px; overscroll-behavior: contain; }
+  .chat-thread { max-width: 100%; }
+  .msg { max-width: 100%; }
+  .bubble { max-width: 88%; }
+  .gen-frame, .gen-image img {
+    max-width: min(80vw, 360px);
+    max-height: 58vh;
+    height: auto;
+  }
+  .chat-hero { padding: 0 18px; }
+  .chat-hero h2 { font-size: 20px; }
+  .hero-suggestions { gap: 8px; }
+
+  /* ── 弹出面板不超出屏幕 ── */
+  .popover {
+    max-width: calc(100vw - 24px);
+    max-height: 55vh; overflow-y: auto;
+    left: 0 !important;
+  }
+  .style-grid { grid-template-columns: 1fr 1fr; }
+
+  /* ── 工作流页在手机上可横向滚动画布，但页面本身不动 ── */
+  .flow-wrap { touch-action: none; }
 }

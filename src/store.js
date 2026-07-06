@@ -118,10 +118,12 @@ export const useStore = create((set, get) => ({
   chats: initialChats,
   activeView: initialChats.length ? { type: 'chat', id: initialChats[0].id } : { type: 'chat', id: null },
   sidebarCollapsed: false,
+  mobileNavOpen: false,
   searchQuery: '',
 
   setActiveView: (view) => set({ activeView: view }),
   toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
+  setMobileNavOpen: (v) => set({ mobileNavOpen: v }),
   setSearchQuery: (q) => set({ searchQuery: q }),
 
   // ── 对话 CRUD ──
