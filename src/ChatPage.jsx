@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from './store.js'
-import { generateImage, generateVideo, downloadMedia, listModels } from './engine/runner.js'
+import { generateImage, generateVideo, generateChat, downloadMedia, listModels } from './engine/runner.js'
+
 import { BUILTIN_MODELS, DEFAULT_MODEL } from './engine/builtin.js'
 
 
@@ -160,6 +161,7 @@ export default function ChatPage({ chatId }) {
 
   const activeModelObj = allVisibleModels.find(m => m.id === model)
   const isVideo = activeModelObj?.type === 'video'
+  const isChat = activeModelObj?.type === 'chat'
 
   const send = async (textOverride) => {
     const text = (textOverride ?? input).trim()
@@ -181,7 +183,7 @@ export default function ChatPage({ chatId }) {
     const aiId = `m${Date.now()}a`
     appendMessage(id, {
       id: aiId, role: 'assistant', status: 'loading', text: '', images: [], videos: [],
-      mediaType: isVideo ? 'video' : 'image',
+      mediaType: isVideo ? 'video' : (isChat ? 'chat' : 'image'),
       ratio: ratio.id === 'auto' ? null : { w: ratio.w, h: ratio.h }, time: Date.now(),
     })
 
@@ -193,6 +195,10 @@ export default function ChatPage({ chatId }) {
       if (isVideo) {
         const video = await generateVideo({ prompt, model, refImage: refs[0] })
         updateMessage(id, aiId, { status: 'done', videos: [video], text: '' })
+      } else if (isChat) {
+        const chatContext = [{ role: 'user', content: prompt }]
+        const responseText = await generateChat({ messages: chatContext, model })
+        updateMessage(id, aiId, { status: 'done', text: responseText })
       } else {
         const img = await generateImage({ prompt, size: ratio.id === 'auto' ? undefined : sizeForRatio(ratio.w, ratio.h), refs, model })
         updateMessage(id, aiId, { status: 'done', images: [img], text: '' })
@@ -204,6 +210,7 @@ export default function ChatPage({ chatId }) {
       setTimeout(() => taRef.current?.focus(), 0)
     }
   }
+
 
 
   const onKeyDown = (e) => {
@@ -461,7 +468,13 @@ function Message({ m }) {
         <span className="dot dot-b" /><span className="dot dot-r" /><span className="dot dot-y" /><span className="dot dot-g" />
       </div>
       <div className="bubble bubble-ai">
-        {m.status === 'loading' && (
+        {m.status === 'loading' && m.mediaType === 'chat' && (
+          <div className="gen-text-loading" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--muted)', fontSize: '13px' }}>
+            <span className="spinner spinner-blue" />
+            正在思考…
+          </div>
+        )}
+        {m.status === 'loading' && m.mediaType !== 'chat' && (
           <div className="gen-frame" style={{ aspectRatio: ar }}>
             <div className="gen-mist" />
             <div className="gen-sheen" />
@@ -472,16 +485,18 @@ function Message({ m }) {
           </div>
         )}
         {m.status === 'error' && <div className="gen-error">⚠ 生成失败：{m.text}</div>}
+        {m.text && m.status === 'done' && <div className="ai-chat-text" style={{ whiteSpace: 'pre-wrap' }}>{m.text}</div>}
         {m.images?.filter(Boolean).map((img, i) => (
           <RevealImage key={i} src={img} ratio={ar} />
         ))}
         {m.videos?.filter(Boolean).map((vid, i) => (
           <RevealVideo key={i} src={vid} ratio={ar} />
         ))}
-        {m.status === 'done' && m.images?.filter(Boolean).length === 0 && m.videos?.filter(Boolean).length === 0 && (
+        {m.status === 'done' && m.images?.filter(Boolean).length === 0 && m.videos?.filter(Boolean).length === 0 && !m.text && (
           <div className="gen-error">（媒体数据未保留，仅保存了会话记录）</div>
         )}
       </div>
+
     </div>
   )
 }

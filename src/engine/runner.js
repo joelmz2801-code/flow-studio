@@ -348,6 +348,40 @@ export async function generateVideo({ prompt, model, refImage }, signal) {
   throw lastErr
 }
 
+export async function generateChat({ messages, model }, signal) {
+  const presets = useStore.getState().presets
+  const ch = resolveModelWithPresets(model, presets)
+  const body = {
+    model: ch.apiModel,
+    messages
+  }
+  const url = joinUrl(ch.baseUrl, ch.chatPath || '/v1/chat/completions')
+  const total = ch.keys.length
+  if (total === 0) {
+    throw new Error('API Key 不能为空，请在设置中配置。')
+  }
+
+  let lastErr
+  for (let idx = 0; idx < total; idx++) {
+    try {
+      const apiKey = ch.keys[idx]
+      const json = await apiPost(url, apiKey, body, signal)
+      const content = json?.choices?.[0]?.message?.content
+      if (typeof content !== 'string') {
+        throw new Error('响应中未找到文本内容')
+      }
+      return content
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err
+      lastErr = err
+      if (isQuotaError(err) && idx < total - 1) continue
+      throw err
+    }
+  }
+  throw lastErr
+}
+
+
 export async function fetchModelsList(baseUrl, apiKey) {
   const endpoints = ['/v1/models', '/api/v1/models', '/models']
   const keys = apiKey ? apiKey.split(',').map(k => k.trim()).filter(Boolean) : []

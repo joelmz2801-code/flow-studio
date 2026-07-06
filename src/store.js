@@ -11,21 +11,6 @@ export const PRESET_FIELDS = ['baseUrl', 'apiKey', 'imageModel', 'videoModel', '
 
 const DEFAULT_PRESETS = [
   {
-    id: 'p-agnes',
-    name: 'Agnes 官方',
-    baseUrl: 'https://api.agnes-ai.com',
-    apiKey: '',
-    imageModel: 'agnes-image-2.1-flash',
-    videoModel: 'agnes-video-2.0',
-    imagePath: '/v1/images/generations',
-    videoPath: '/v1/videos/generations',
-    models: [
-      { id: 'agnes-image-2.1-flash', visible: true, isDefault: true, type: 'image' },
-      { id: 'agnes-image-2.0-flash', visible: true, isDefault: false, type: 'image' },
-      { id: 'agnes-video-2.0', visible: true, isDefault: true, type: 'video' }
-    ]
-  },
-  {
     id: 'p-openai',
     name: 'OpenAI 官方',
     baseUrl: 'https://api.openai.com',
@@ -39,6 +24,20 @@ const DEFAULT_PRESETS = [
       { id: 'sora-2', visible: true, isDefault: true, type: 'video' }
     ]
   },
+  {
+    id: 'p-xinyuan',
+    name: '鑫源 AI (xinyuan)',
+    baseUrl: 'https://xinyuanai666.com',
+    apiKey: 'sk-v6n1p9wtyf5CH6ak2XAXIs5eufmLZCaRt1PethrRk7FaL9TF, sk-zH0pAR2SgbVwCY1HkGWDVtuK2tmY8Py8c59vnQDjbHrsaUz, sk-auG6YSDrkrxBGHXNjWCqy7ZMB4O9jkMbohtFKaw7EiewrG9i, sk-lwjbOTEP4UyErP5S15yMACFGieyEG4bWHRi2uez0yZhASF8I, sk-FNsAP9jhl53w59ac4pcwOWdahxRubRGFrylgyEIZmriaDYT4b, sk-peXqWSvzPlEXlfrZYBj4YLPXdRjzQh4T1YZKRj8ORVmikdQS',
+    imageModel: 'gpt-image-2',
+    videoModel: 'sora-2',
+    imagePath: '/v1/images/generations',
+    videoPath: '/v1/videos/generations',
+    models: [
+      { id: 'gpt-image-2', visible: true, isDefault: true, type: 'image' },
+      { id: 'sora-2', visible: true, isDefault: true, type: 'video' }
+    ]
+  }
 ]
 
 function loadPresets() {
