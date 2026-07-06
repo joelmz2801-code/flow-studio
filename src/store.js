@@ -24,9 +24,16 @@ function debouncedSavePreset(preset) {
   }, 800)
 }
 
-// ── API 预设：持久化到 localStorage ─────────────
-const PRESET_KEY = 'flowstudio.apiPresets.v1'
+// ── localStorage key 管理：按用户隔离 ─────────────
+function chatKey() {
+  return _syncUserId ? `flowstudio.chats.v1:${_syncUserId}` : 'flowstudio.chats.v1'
+}
 
+function presetKey() {
+  return _syncUserId ? `flowstudio.presets.v1:${_syncUserId}` : 'flowstudio.presets.v1'
+}
+
+// ── API 预设 ─────────────────────────────────────
 export const PRESET_FIELDS = ['baseUrl', 'apiKey', 'imageModel', 'videoModel', 'imagePath', 'videoPath']
 
 const DEFAULT_PRESETS = [
@@ -60,16 +67,13 @@ const DEFAULT_PRESETS = [
   }
 ]
 
-function loadPresets() {
+function loadPresetsFromStorage(key) {
   try {
-    const raw = localStorage.getItem(PRESET_KEY)
+    const raw = localStorage.getItem(key)
     if (raw) {
       const arr = JSON.parse(raw)
       if (Array.isArray(arr) && arr.length) {
-        return arr.map(p => ({
-          ...p,
-          models: p.models || []
-        }))
+        return arr.map(p => ({ ...p, models: p.models || [] }))
       }
     }
   } catch { /* ignore */ }
@@ -77,12 +81,49 @@ function loadPresets() {
 }
 
 function persistPresets(presets) {
-  try { localStorage.setItem(PRESET_KEY, JSON.stringify(presets)) } catch { /* ignore */ }
+  try { localStorage.setItem(presetKey(), JSON.stringify(presets)) } catch { /* ignore */ }
 }
 
+// ── 对话会话 ──────────────────────────────────────
+function loadChatsFromStorage(key) {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw) {
+      const arr = JSON.parse(raw)
+      if (Array.isArray(arr)) {
+        return arr.map((c) => ({
+          ...c,
+          messages: (c.messages || []).map((m) =>
+            m.status === 'loading' ? { ...m, status: 'error', text: '生成已中断，请重新发送' } : m,
+          ),
+        }))
+      }
+    }
+  } catch { /* ignore */ }
+  return []
+}
 
-const initialPresets = loadPresets()
-const firstPreset = initialPresets[0]
+function persistChats(chats) {
+  try {
+    localStorage.setItem(chatKey(), JSON.stringify(chats))
+  } catch {
+    try {
+      const slim = chats.map((c) => ({
+        ...c,
+        messages: c.messages.map((m) => ({
+          ...m,
+          images: (m.images || []).map((u) => (u.startsWith('data:') ? '' : u)),
+          refs: [],
+        })),
+      }))
+      localStorage.setItem(chatKey(), JSON.stringify(slim))
+    } catch { /* ignore */ }
+  }
+}
+
+// ── 初始数据（匿名状态） ──────────────────────────
+const initialPresets = loadPresetsFromStorage(presetKey())
+const initialChats = loadChatsFromStorage(chatKey())
 
 const initialNodes = [
   { id: 'ref1', type: 'refImage', position: { x: 40, y: 480 }, data: {} },
@@ -106,51 +147,7 @@ const initialEdges = [
   { id: 'e6', source: 'gen1', sourceHandle: 'image', target: 'save1', targetHandle: 'media', animated: true },
 ]
 
-
-// ── 对话会话：持久化到 localStorage ───────────
-const CHAT_KEY = 'flowstudio.chats.v1'
-
-function loadChats() {
-  try {
-    const raw = localStorage.getItem(CHAT_KEY)
-    if (raw) {
-      const arr = JSON.parse(raw)
-      if (Array.isArray(arr)) {
-        // 刷新页面时，把中断的生成任务标记为失败，避免一直转圈
-        return arr.map((c) => ({
-          ...c,
-          messages: (c.messages || []).map((m) =>
-            m.status === 'loading' ? { ...m, status: 'error', text: '生成已中断，请重新发送' } : m,
-          ),
-        }))
-      }
-    }
-  } catch { /* ignore */ }
-  return []
-}
-
-function persistChats(chats) {
-  try {
-    localStorage.setItem(CHAT_KEY, JSON.stringify(chats))
-  } catch {
-    // 存储超限时丢弃消息中的大图数据再试一次
-    try {
-      const slim = chats.map((c) => ({
-        ...c,
-        messages: c.messages.map((m) => ({
-          ...m,
-          images: (m.images || []).map((u) => (u.startsWith('data:') ? '' : u)),
-          refs: [],
-        })),
-      }))
-      localStorage.setItem(CHAT_KEY, JSON.stringify(slim))
-    } catch { /* ignore */ }
-  }
-}
-
 export const newChatId = () => `c${Date.now()}${Math.floor(Math.random() * 1000)}`
-
-const initialChats = loadChats()
 
 export const useStore = create((set, get) => ({
   nodes: initialNodes,
@@ -158,7 +155,6 @@ export const useStore = create((set, get) => ({
   presets: initialPresets,
   settingsOpen: false,
 
-  // ── 界面状态 ──
   chats: initialChats,
   activeView: initialChats.length ? { type: 'chat', id: initialChats[0].id } : { type: 'chat', id: null },
   sidebarCollapsed: false,
@@ -240,7 +236,6 @@ export const useStore = create((set, get) => ({
   onConnect: (conn) =>
     set({
       edges: addEdge({ ...conn, animated: true }, get().edges.filter(
-        // 同一输入桩只允许一条连线（refAggregate 的每个口也是单连）
         (e) => !(e.target === conn.target && e.targetHandle === conn.targetHandle),
       )),
     }),
@@ -290,55 +285,65 @@ export const useStore = create((set, get) => ({
   },
 }))
 
-export function pickPresetFields(preset) {
-  const out = {}
-  for (const k of PRESET_FIELDS) out[k] = preset[k] ?? ''
-  return out
-}
+// ── 账户切换：登录时加载该用户数据，退出时清除 ──────
 
 export async function syncFromCloud(userId) {
   _syncUserId = userId
-  const store = useStore.getState()
 
   const [cloudChats, cloudPresets] = await Promise.all([
     loadChatsFromCloud(userId),
     loadPresetsFromCloud(userId),
   ])
 
-  if (cloudChats && cloudChats.length > 0) {
-    const localIds = new Set(store.chats.map(c => c.id))
-    const merged = [...cloudChats]
-    for (const local of store.chats) {
-      if (!cloudChats.find(c => c.id === local.id)) {
-        merged.push(local)
-        saveChatToCloud(local, userId)
-      }
-    }
-    persistChats(merged)
-    useStore.setState({ chats: merged })
-  } else if (cloudChats && cloudChats.length === 0 && store.chats.length > 0) {
-    for (const chat of store.chats) {
-      saveChatToCloud(chat, userId)
+  // 加载该用户本地缓存
+  const localChats = loadChatsFromStorage(chatKey())
+  const localPresets = loadPresetsFromStorage(presetKey())
+
+  // 云端有数据 → 以云端为准（云端是权威源）
+  if (cloudChats !== null) {
+    const chats = cloudChats.length > 0 ? cloudChats : localChats
+    persistChats(chats)
+    useStore.setState({
+      chats,
+      activeView: chats.length ? { type: 'chat', id: chats[0].id } : { type: 'chat', id: null },
+    })
+    // 云端为空但本地有数据 → 首次登录，上传本地数据
+    if (cloudChats.length === 0 && localChats.length > 0) {
+      for (const chat of localChats) saveChatToCloud(chat, userId)
     }
   }
 
-  if (cloudPresets && cloudPresets.length > 0) {
-    const merged = [...cloudPresets]
-    for (const local of store.presets) {
-      if (!cloudPresets.find(p => p.id === local.id)) {
-        merged.push(local)
-        savePresetToCloud(local, userId)
-      }
-    }
-    persistPresets(merged)
-    useStore.setState({ presets: merged })
-  } else if (cloudPresets && cloudPresets.length === 0 && store.presets.length > 0) {
-    for (const preset of store.presets) {
-      savePresetToCloud(preset, userId)
+  if (cloudPresets !== null) {
+    const presets = cloudPresets.length > 0 ? cloudPresets : localPresets
+    persistPresets(presets)
+    useStore.setState({ presets })
+    if (cloudPresets.length === 0 && localPresets.length > 0) {
+      for (const preset of localPresets) savePresetToCloud(preset, userId)
     }
   }
 }
 
+export function clearUserData() {
+  // 清除内存中的用户数据，重置为匿名状态
+  _syncUserId = null
+  for (const t of Object.values(_saveTimers)) clearTimeout(t)
+  _saveTimers = {}
+
+  const chats = loadChatsFromStorage(chatKey())
+  const presets = loadPresetsFromStorage(presetKey())
+  useStore.setState({
+    chats,
+    presets,
+    activeView: chats.length ? { type: 'chat', id: chats[0].id } : { type: 'chat', id: null },
+  })
+}
+
 export function setSyncUserId(userId) {
   _syncUserId = userId
+}
+
+export function pickPresetFields(preset) {
+  const out = {}
+  for (const k of PRESET_FIELDS) out[k] = preset[k] ?? ''
+  return out
 }

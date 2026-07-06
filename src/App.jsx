@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { useStore, syncFromCloud } from './store.js'
+import { useStore, syncFromCloud, clearUserData } from './store.js'
 import { useAuth } from './useAuth.js'
 import { subscribeToChanges } from './lib/sync.js'
 import Sidebar from './Sidebar.jsx'
@@ -16,7 +16,10 @@ export default function App() {
   const { user, loading, isAuthEnabled } = useAuth()
 
   useEffect(() => {
-    if (!user) return
+    if (!user) {
+      clearUserData()
+      return
+    }
     syncFromCloud(user.id)
     const unsub = subscribeToChanges(user.id, () => {
       syncFromCloud(user.id)
