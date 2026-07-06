@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useStore } from './store.js'
+import { useAuth } from './useAuth.js'
 import { testApiConnection, fetchModelsList } from './engine/runner.js'
 
 const EMPTY = {
@@ -22,6 +23,7 @@ const EMPTY = {
 
 export default function SettingsModal() {
   const { settingsOpen, setSettingsOpen, presets, addPreset, updatePreset, removePreset } = useStore()
+  const { user, signOut, isAuthEnabled } = useAuth()
   const [activeId, setActiveId] = useState(presets[0]?.id || null)
   const [draft, setDraft] = useState(null)
   
@@ -255,6 +257,42 @@ export default function SettingsModal() {
           </div>
 
           <div className="preset-form">
+            {/* ── Section: 账户管理 ── */}
+            {isAuthEnabled && user && (
+              <div className="settings-section account-section">
+                <div className="settings-section-header">
+                  <div className="settings-section-icon green">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  </div>
+                  <div>
+                    <div className="settings-section-title">账户</div>
+                    <div className="settings-section-desc">当前登录的账户信息</div>
+                  </div>
+                </div>
+
+                <div className="account-info-row">
+                  <div className="account-avatar">
+                    {(user.email || user.user_metadata?.full_name || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="account-meta">
+                    <div className="account-email">{user.email || '未知邮箱'}</div>
+                    <div className="account-sub">
+                      {user.app_metadata?.provider
+                        ? `登录方式: ${user.app_metadata.provider}`
+                        : '已登录'}
+                      {user.created_at && ` · 注册于 ${new Date(user.created_at).toLocaleDateString()}`}
+                    </div>
+                  </div>
+                  <button
+                    className="btn-danger account-signout-btn"
+                    onClick={() => { signOut(); setSettingsOpen(false); }}
+                  >
+                    退出账户
+                  </button>
+                </div>
+              </div>
+            )}
+
             {notify && (
               <div className={`preset-notify ${notify.type}`}>
                 <span>{notify.message}</span>

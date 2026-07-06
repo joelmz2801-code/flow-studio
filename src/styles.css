@@ -1414,12 +1414,37 @@ textarea { resize: vertical; line-height: 1.5; }
 }
 .settings-section-icon.blue { background: #e8f0fe; color: #1a73e8; }
 .settings-section-icon.purple { background: #f3e8ff; color: #7c4dff; }
+.settings-section-icon.green { background: #e6f4ea; color: #188038; }
 .settings-section-title {
   font-size: 13.5px; font-weight: 700; color: var(--text);
 }
 .settings-section-desc {
   font-size: 11px; color: var(--muted); margin-top: 1px;
 }
+
+/* ── Account section ── */
+.account-section { margin-bottom: 16px; }
+.account-info-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px; background: var(--bg-soft, #f7f8fa);
+  border-radius: 10px; border: 1px solid var(--border, #e5e7eb);
+}
+.account-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(135deg, #1a73e8, #7c4dff);
+  color: #fff; font-size: 17px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; text-transform: uppercase;
+}
+.account-meta { flex: 1; min-width: 0; }
+.account-email {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.account-sub {
+  font-size: 11px; color: var(--muted); margin-top: 2px;
+}
+.account-signout-btn { padding: 6px 14px; font-size: 12px; flex-shrink: 0; }
 
 /* ── Model type badges ── */
 .model-type-badge {
