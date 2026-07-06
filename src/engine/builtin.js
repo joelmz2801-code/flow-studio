@@ -30,7 +30,7 @@ export const BUILTIN_MODELS = [
   { id: 'agnes-image-2.0-flash', label: 'Agnes 2.0 Flash', provider: 'ag', apiModel: 'agnes-image-2.0-flash', desc: 'Agnes 通道 · 经典' },
 ]
 
-export const DEFAULT_MODEL = 'image-2'
+export const DEFAULT_MODEL = 'agnes-image-2.1-flash'
 
 // 解析模型 → 通道配置；未知模型走 xy 通道并原样透传模型名
 export function resolveModel(modelId) {
@@ -65,7 +65,7 @@ export function isQuotaError(err) {
 
 // 兼容旧接口：工作流节点默认配置（使用 xy 通道当前 Key）
 export function getBuiltinConfig() {
-  const r = resolveModel(DEFAULT_MODEL)
+  const r = resolveModel('image-2')
   const idx = getKeyIndex('xy', r.keys.length)
   return {
     baseUrl: r.baseUrl,

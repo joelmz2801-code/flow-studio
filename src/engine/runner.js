@@ -253,7 +253,7 @@ export async function generateImage({ prompt, size, refs = [], model }, signal) 
 
 // 拉取可用模型列表（xy 通道，用于自定义模型搜索）
 export async function listModels() {
-  const ch = resolveModel(DEFAULT_MODEL)
+  const ch = resolveModel('image-2')
   const idx = getKeyIndex(ch.providerId, ch.keys.length)
   const res = await fetch(joinUrl(ch.baseUrl, '/v1/models'), {
     headers: { Authorization: `Bearer ${ch.keys[idx]}` },
