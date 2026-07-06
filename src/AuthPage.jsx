@@ -1,6 +1,25 @@
 import React, { useState } from 'react'
 import { supabase, isAuthEnabled } from './lib/supabase.js'
 
+function translateAuthError(msg) {
+  const lower = msg.toLowerCase()
+  if (lower.includes('rate limit'))
+    return '操作太频繁，请等待 1~2 分钟后重试。建议在 Supabase Dashboard → Authentication → Settings 中关闭 "Confirm email" 以避免频率限制。'
+  if (lower.includes('invalid login credentials'))
+    return '邮箱或密码错误'
+  if (lower.includes('user already registered') || lower.includes('already been registered'))
+    return '该邮箱已注册，请直接登录'
+  if (lower.includes('password') && lower.includes('6'))
+    return '密码至少需要 6 位'
+  if (lower.includes('invalid email') || lower.includes('email is invalid'))
+    return '请输入有效的邮箱地址'
+  if (lower.includes('signup is disabled'))
+    return '注册功能已关闭，请联系管理员'
+  if (lower.includes('network') || lower.includes('fetch'))
+    return '网络连接失败，请检查网络后重试'
+  return msg || '操作失败，请稍后重试'
+}
+
 export default function AuthPage() {
   const [mode, setMode] = useState('login') // 'login' | 'signup'
   const [email, setEmail] = useState('')
@@ -25,13 +44,18 @@ export default function AuthPage() {
       } else {
         const { data, error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
-        if (data?.user && !data.session) {
-          setInfo('注册成功！请检查邮箱确认链接后登录。')
-          setMode('login')
+        if (data?.user) {
+          if (data.user.identities?.length === 0) {
+            setError('该邮箱已注册，请直接登录')
+            setMode('login')
+          } else if (!data.session) {
+            setInfo('注册成功！请检查邮箱确认链接后登录。')
+            setMode('login')
+          }
         }
       }
     } catch (err) {
-      setError(err.message || '操作失败')
+      setError(translateAuthError(err.message || ''))
     } finally {
       setLoading(false)
     }
