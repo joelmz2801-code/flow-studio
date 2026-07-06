@@ -551,7 +551,14 @@ function RatioIcon({ w, h }) {
   )
 }
 
+const revealedSet = new Set()
+
 function Message({ m }) {
+  const shouldAnimate = m.status === 'done' && m.images?.filter(Boolean).length > 0 && !revealedSet.has(m.id)
+
+  if (shouldAnimate) {
+    revealedSet.add(m.id)
+  }
   if (m.role === 'user') {
     return (
       <div className="msg msg-user">
@@ -596,7 +603,7 @@ function Message({ m }) {
         {m.status === 'error' && <div className="gen-error">⚠ 生成失败：{m.text}</div>}
         {m.text && m.status === 'done' && <div className="ai-chat-text" style={{ whiteSpace: 'pre-wrap' }}>{m.text}</div>}
         {m.images?.filter(Boolean).map((img, i) => (
-          <RevealImage key={i} src={img} ratio={ar} />
+          <RevealImage key={i} src={img} ratio={ar} animate={shouldAnimate} />
         ))}
         {m.videos?.filter(Boolean).map((vid, i) => (
           <RevealVideo key={i} src={vid} ratio={ar} />
@@ -643,8 +650,9 @@ function RevealVideo({ src, ratio }) {
 
 
 // 图片加载完成后：先模糊显现，再逐渐晕染清晰
-function RevealImage({ src, ratio }) {
+function RevealImage({ src, ratio, animate = true }) {
   const [loaded, setLoaded] = useState(false)
+  const shouldAnimate = animate && loaded
   return (
     <div className="gen-image" style={!loaded ? { aspectRatio: ratio } : undefined}>
       {!loaded && (
@@ -656,7 +664,8 @@ function RevealImage({ src, ratio }) {
       <img
         src={src}
         alt="生成结果"
-        className={loaded ? 'reveal' : 'pending'}
+        className={shouldAnimate ? 'reveal' : ''}
+        style={!loaded ? { opacity: 0 } : undefined}
         onLoad={() => setLoaded(true)}
       />
       {loaded && (

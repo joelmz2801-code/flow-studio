@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { useStore, syncFromCloud, clearUserData } from './store.js'
+import { useStore, syncFromCloud, clearUserData, applyRealtimeChatChange, applyRealtimePresetChange } from './store.js'
 import { useAuth } from './useAuth.js'
 import { subscribeToChanges } from './lib/sync.js'
 import Sidebar from './Sidebar.jsx'
@@ -21,11 +21,10 @@ export default function App() {
       return
     }
     syncFromCloud(user.id)
-    const unsub = subscribeToChanges(user.id, () => {
-      syncFromCloud(user.id)
-    }, () => {
-      syncFromCloud(user.id)
-    })
+    const unsub = subscribeToChanges(user.id,
+      (payload) => { applyRealtimeChatChange(payload) },
+      (payload) => { applyRealtimePresetChange(payload) },
+    )
     return unsub
   }, [user?.id])
 

@@ -340,7 +340,6 @@ export async function syncFromCloud(userId) {
 }
 
 export function clearUserData() {
-  // 清除内存中的用户数据，重置为匿名状态
   _syncUserId = null
   for (const t of Object.values(_saveTimers)) clearTimeout(t)
   _saveTimers = {}
@@ -352,6 +351,67 @@ export function clearUserData() {
     presets,
     activeView: chats.length ? { type: 'chat', id: chats[0].id } : { type: 'chat', id: null },
   })
+}
+
+// ── 实时增量更新（不触发重新加载） ──────────────────
+function toCamelChat(row) {
+  if (!row) return null
+  return { id: row.id, title: row.title, messages: row.messages || [], createdAt: row.created_at }
+}
+
+function toCamelPreset(row) {
+  if (!row) return null
+  return {
+    id: row.id, name: row.name, baseUrl: row.base_url, apiKey: row.api_key,
+    imageModel: row.image_model, videoModel: row.video_model,
+    imagePath: row.image_path, videoPath: row.video_path, models: row.models || [],
+  }
+}
+
+export function applyRealtimeChatChange(payload) {
+  const { eventType, new: newRow, old: oldRow } = payload
+  const store = useStore.getState()
+  let chats
+
+  if (eventType === 'DELETE') {
+    chats = store.chats.filter(c => c.id !== oldRow.id)
+  } else {
+    const chat = toCamelChat(newRow)
+    if (!chat) return
+    const idx = store.chats.findIndex(c => c.id === chat.id)
+    if (idx >= 0) {
+      chats = [...store.chats]
+      chats[idx] = chat
+    } else {
+      chats = [chat, ...store.chats]
+    }
+  }
+
+  persistChats(chats)
+  useStore.setState({ chats })
+}
+
+export function applyRealtimePresetChange(payload) {
+  const { eventType, new: newRow, old: oldRow } = payload
+  const store = useStore.getState()
+  let presets
+
+  if (eventType === 'DELETE') {
+    presets = store.presets.filter(p => p.id !== oldRow.id)
+  } else {
+    const preset = toCamelPreset(newRow)
+    if (!preset) return
+    const idx = store.presets.findIndex(p => p.id === preset.id)
+    if (idx >= 0) {
+      presets = [...store.presets]
+      presets[idx] = preset
+    } else {
+      presets = [...store.presets, preset]
+    }
+  }
+
+  persistPresets(presets)
+  useStore.setState({ presets })
 }
 
 export function setSyncUserId(userId) {
