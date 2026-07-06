@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from './store.js'
-import { generateImage, downloadMedia } from './engine/runner.js'
+import { generateImage, downloadMedia, listModels } from './engine/runner.js'
 
 // ── 画幅比例（附使用场景说明）──────────────────
 const RATIOS = [
@@ -81,6 +81,22 @@ export default function ChatPage({ chatId }) {
   const taRef = useRef()
   const ratioPop = usePopover()
   const stylePop = usePopover()
+  const modelPop = usePopover()
+  const [model, setModel] = useState(() => localStorage.getItem('jfs-model') || 'gpt-image-1')
+  const [models, setModels] = useState(null)      // null=未加载 []=失败或为空
+  const [modelQuery, setModelQuery] = useState('')
+
+  const pickModel = (m) => {
+    setModel(m)
+    localStorage.setItem('jfs-model', m)
+    modelPop.setOpen(false)
+    setModelQuery('')
+  }
+
+  useEffect(() => {
+    if (!modelPop.open || models !== null) return
+    listModels().then(setModels).catch(() => setModels([]))
+  }, [modelPop.open])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -109,7 +125,7 @@ export default function ChatPage({ chatId }) {
 
     const userMsg = {
       id: `m${Date.now()}u`, role: 'user', text, refs, time: Date.now(),
-      meta: [ratio.name !== '1:1' ? `画幅 ${ratio.name}` : '', style.id !== 'none' ? style.name : ''].filter(Boolean),
+      meta: [ratio.name !== '1:1' ? `画幅 ${ratio.name}` : '', style.id !== 'none' ? style.name : '', model].filter(Boolean),
     }
     appendMessage(id, userMsg)
 
@@ -129,7 +145,7 @@ export default function ChatPage({ chatId }) {
     setBusy(true)
     try {
       const prompt = style.prompt ? `${text}\n\n画面风格：${style.prompt}` : text
-      const img = await generateImage({ prompt, size: sizeForRatio(ratio.w, ratio.h), refs })
+      const img = await generateImage({ prompt, size: sizeForRatio(ratio.w, ratio.h), refs, model })
       updateMessage(id, aiId, { status: 'done', images: [img], text: '' })
     } catch (err) {
       updateMessage(id, aiId, { status: 'error', text: err.message })
@@ -258,6 +274,53 @@ export default function ChatPage({ chatId }) {
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* 模型选择 */}
+            <div className="pop-anchor" ref={modelPop.ref}>
+              <button className={`pill-btn ${modelPop.open ? 'active' : ''}`} onClick={() => modelPop.setOpen(!modelPop.open)} title="选择生图模型">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg>
+                <span className="pill-model">{model}</span>
+              </button>
+              {modelPop.open && (
+                <div className="popover popover-models">
+                  <div className="pop-title">生图模型</div>
+                  <input
+                    className="model-search"
+                    placeholder="搜索或输入自定义模型…"
+                    value={modelQuery}
+                    autoFocus
+                    onChange={(e) => setModelQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && modelQuery.trim() && pickModel(modelQuery.trim())}
+                  />
+                  <div className="model-list">
+                    {models === null && <div className="model-hint">正在获取模型列表…</div>}
+                    {models !== null && (() => {
+                      const q = modelQuery.trim().toLowerCase()
+                      const list = (models || []).filter((m) => !q || m.toLowerCase().includes(q))
+                      if (!list.length) {
+                        return (
+                          <div className="model-hint">
+                            {models.length === 0 ? '未能获取列表' : '没有匹配的模型'}
+                            {q ? <>，按 Enter 使用 “{modelQuery.trim()}”</> : ''}
+                          </div>
+                        )
+                      }
+                      return list.map((m) => (
+                        <button key={m} className={`pop-item model-item ${model === m ? 'selected' : ''}`} onClick={() => pickModel(m)}>
+                          <span className="pop-item-main"><b>{m}</b></span>
+                          {model === m && <span className="pop-check">✓</span>}
+                        </button>
+                      ))
+                    })()}
+                  </div>
+                  {modelQuery.trim() && !(models || []).includes(modelQuery.trim()) && (
+                    <button className="model-use-custom" onClick={() => pickModel(modelQuery.trim())}>
+                      使用自定义模型 “{modelQuery.trim()}”
+                    </button>
+                  )}
                 </div>
               )}
             </div>

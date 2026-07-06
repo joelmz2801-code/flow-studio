@@ -223,12 +223,26 @@ export async function downloadMedia(media, filename) {
 // ─────────────────────────────────────────────
 // 对话式生图：供聊天页面调用（使用内置通道）
 // ─────────────────────────────────────────────
-export async function generateImage({ prompt, size = '1024x1024', refs = [] }, signal) {
+export async function generateImage({ prompt, size = '1024x1024', refs = [], model }, signal) {
   const config = getBuiltinConfig()
-  const body = { model: config.imageModel, prompt, n: 1, size }
+  const body = { model: model || config.imageModel, prompt, n: 1, size }
   if (refs?.length) body.image = refs
   const json = await apiPost(joinUrl(config.baseUrl, config.imagePath), config.apiKey, body, signal)
   const img = extractImage(json)
   if (!img) throw new Error('响应中未找到图片: ' + JSON.stringify(json).slice(0, 200))
   return img
+}
+
+// 拉取可用模型列表（内置通道）
+export async function listModels() {
+  const config = getBuiltinConfig()
+  const res = await fetch(joinUrl(config.baseUrl, '/v1/models'), {
+    headers: { Authorization: `Bearer ${config.apiKey}` },
+  })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  const json = await res.json()
+  const ids = (json.data || json.models || [])
+    .map((m) => (typeof m === 'string' ? m : m.id))
+    .filter(Boolean)
+  return [...new Set(ids)].sort()
 }

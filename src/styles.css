@@ -854,3 +854,46 @@ textarea { resize: vertical; line-height: 1.5; }
   /* ── 工作流页在手机上可横向滚动画布，但页面本身不动 ── */
   .flow-wrap { touch-action: none; }
 }
+
+/* ═══════════════════════════════════════════
+   v5 · 模型选择器
+   ═══════════════════════════════════════════ */
+.pill-model {
+  max-width: 130px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.popover-models { width: 280px; padding-bottom: 8px; }
+.model-search {
+  width: calc(100% - 24px);
+  margin: 4px 12px 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #e3e3e6);
+  border-radius: 9px;
+  font-size: 13px;
+  outline: none;
+  background: var(--bg, #fff);
+  color: inherit;
+  box-sizing: border-box;
+}
+.model-search:focus { border-color: #7aa5f7; box-shadow: 0 0 0 3px rgba(122,165,247,.18); }
+.model-list { max-height: 240px; overflow-y: auto; }
+.model-item b { font-weight: 500; font-size: 13px; word-break: break-all; }
+.model-hint { padding: 12px; font-size: 12.5px; color: var(--muted, #888); text-align: center; }
+.model-use-custom {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 8px 12px 0;
+  padding: 8px 10px;
+  border: 1px dashed #9db7f5;
+  border-radius: 9px;
+  background: rgba(122,165,247,.08);
+  color: #3f6ae0;
+  font-size: 12.5px;
+  cursor: pointer;
+  word-break: break-all;
+}
+.model-use-custom:hover { background: rgba(122,165,247,.16); }
+@media (max-width: 768px) {
+  .pill-model { max-width: 72px; }
+  .popover-models { width: min(280px, calc(100vw - 24px)); }
+}
