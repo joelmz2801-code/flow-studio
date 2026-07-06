@@ -25,7 +25,7 @@ const _P = {
 
 // 对话框中展示的内置模型
 export const BUILTIN_MODELS = [
-  { id: 'image-2', label: 'Image 2', provider: 'xy', apiModel: 'gpt-image-1', desc: '默认推荐 · 多通道保障' },
+  { id: 'image-2', label: 'Image 2', provider: 'xy', apiModel: 'gpt-image-2', desc: '多通道保障 · 高质量' },
   { id: 'agnes-image-2.1-flash', label: 'Agnes 2.1 Flash', provider: 'ag', apiModel: 'agnes-image-2.1-flash', desc: 'Agnes 通道 · 快速' },
   { id: 'agnes-image-2.0-flash', label: 'Agnes 2.0 Flash', provider: 'ag', apiModel: 'agnes-image-2.0-flash', desc: 'Agnes 通道 · 经典' },
 ]

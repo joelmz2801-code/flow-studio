@@ -197,17 +197,27 @@ export async function runGraph(targetIds, { nodes, edges, updateData }) {
   return results
 }
 
+async function fetchBlob(url) {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    return await res.blob()
+  } catch { return null }
+}
+
 export async function downloadMedia(media, filename) {
   let blob
   if (media.startsWith('data:')) {
     const res = await fetch(media)
     blob = await res.blob()
   } else {
-    try {
-      const res = await fetch(media)
-      blob = await res.blob()
-    } catch {
-      // 跨域下载失败时直接打开链接
+    blob = await fetchBlob(media)
+    if (!blob) {
+      // 兜底：通过图片代理转一遍拿到可下载的字节
+      blob = await fetchBlob('https://images.weserv.nl/?url=' + encodeURIComponent(media.replace(/^https?:\/\//, '')))
+    }
+    if (!blob) {
+      // 实在拿不到字节时才打开新窗口
       window.open(media, '_blank')
       return
     }
@@ -223,10 +233,21 @@ export async function downloadMedia(media, filename) {
 // ─────────────────────────────────────────────
 // 对话式生图：供聊天页面调用（内置多通道，额度不足自动切换 Key）
 // ─────────────────────────────────────────────
+// gpt-image 系列只接受固定尺寸，按方向吸附到最接近的合法值
+function snapSizeForModel(apiModel, size) {
+  if (!size || !/^gpt-image/i.test(apiModel)) return size
+  const [w, h] = size.split('x').map(Number)
+  if (!w || !h) return 'auto'
+  if (w > h) return '1536x1024'
+  if (h > w) return '1024x1536'
+  return '1024x1024'
+}
+
 export async function generateImage({ prompt, size, refs = [], model }, signal) {
   const ch = resolveModel(model || DEFAULT_MODEL)
   const body = { model: ch.apiModel, prompt, n: 1 }
-  if (size) body.size = size
+  const snapped = snapSizeForModel(ch.apiModel, size)
+  if (snapped) body.size = snapped
   if (refs?.length) body.image = refs
 
   const total = ch.keys.length
