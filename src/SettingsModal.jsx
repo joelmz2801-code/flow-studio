@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useStore } from './store.js'
+import { useStore, forceFlushPendingSaves } from './store.js'
 import { useAuth } from './useAuth.js'
 import { testApiConnection, fetchModelsList } from './engine/runner.js'
 
@@ -285,7 +285,7 @@ export default function SettingsModal() {
                   </div>
                   <button
                     className="btn-danger account-signout-btn"
-                    onClick={() => { signOut(); setSettingsOpen(false); }}
+                    onClick={() => { forceFlushPendingSaves(); signOut(); setSettingsOpen(false); }}
                   >
                     退出账户
                   </button>

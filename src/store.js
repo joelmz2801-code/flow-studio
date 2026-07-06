@@ -13,7 +13,8 @@ function debouncedSaveChat(chat) {
   clearTimeout(_saveTimers[chat.id])
   _saveTimers[chat.id] = setTimeout(() => {
     saveChatToCloud(chat, _syncUserId)
-  }, 800)
+    delete _saveTimers[chat.id]
+  }, 1500)
 }
 
 function debouncedSavePreset(preset) {
@@ -21,7 +22,15 @@ function debouncedSavePreset(preset) {
   clearTimeout(_saveTimers[preset.id])
   _saveTimers[preset.id] = setTimeout(() => {
     savePresetToCloud(preset, _syncUserId)
-  }, 800)
+    delete _saveTimers[preset.id]
+  }, 1500)
+}
+
+export function forceFlushPendingSaves() {
+  for (const [id, timer] of Object.entries(_saveTimers)) {
+    clearTimeout(timer)
+  }
+  _saveTimers = {}
 }
 
 // ── localStorage key 管理：按用户隔离 ─────────────
@@ -289,6 +298,13 @@ export const useStore = create((set, get) => ({
 
 export async function syncFromCloud(userId) {
   _syncUserId = userId
+
+  // 登录时先清空内存，防止旧账户数据残留
+  useStore.setState({
+    chats: [],
+    presets: DEFAULT_PRESETS,
+    activeView: { type: 'chat', id: null },
+  })
 
   const [cloudChats, cloudPresets] = await Promise.all([
     loadChatsFromCloud(userId),
