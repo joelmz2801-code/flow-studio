@@ -88,6 +88,8 @@ export default function ChatPage({ chatId }) {
   const [customH, setCustomH] = useState('')
   const [refs, setRefs] = useState([])
   const [busy, setBusy] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const abortRef = useRef(null)
   const fileRef = useRef()
   const scrollRef = useRef()
   const taRef = useRef()
@@ -148,6 +150,40 @@ export default function ChatPage({ chatId }) {
     const list = Array.from(files || []).slice(0, 4 - refs.length)
     const urls = await Promise.all(list.map(fileToDataUrl))
     setRefs((r) => [...r, ...urls].slice(0, 4))
+  }
+
+  // 粘贴图片
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    const imageFiles = []
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile()
+        if (file) imageFiles.push(file)
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault()
+      attach(imageFiles)
+    }
+  }
+
+  // 拖拽图片
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setDragOver(false)
+    const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'))
+    if (files.length > 0) attach(files)
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setDragOver(true)
+  }
+
+  const handleDragLeave = (e) => {
+    if (e.currentTarget === e.target) setDragOver(false)
   }
 
   const applyCustomRatio = () => {
@@ -219,24 +255,38 @@ export default function ChatPage({ chatId }) {
     setInput('')
     setRefs([])
     setBusy(true)
+    const controller = new AbortController()
+    abortRef.current = controller
     try {
       const prompt = style.prompt ? `${text}\n\n画面风格：${style.prompt}` : text
       if (activeIsVideo) {
-        const video = await generateVideo({ prompt, model: activeModel, refImage: refs[0] })
+        const video = await generateVideo({ prompt, model: activeModel, refImage: refs[0] }, controller.signal)
         updateMessage(id, aiId, { status: 'done', videos: [video], text: '' })
       } else if (activeIsChat) {
         const chatContext = [{ role: 'user', content: prompt }]
-        const responseText = await generateChat({ messages: chatContext, model: activeModel })
+        const responseText = await generateChat({ messages: chatContext, model: activeModel }, controller.signal)
         updateMessage(id, aiId, { status: 'done', text: responseText })
       } else {
-        const img = await generateImage({ prompt, size: ratio.id === 'auto' ? undefined : sizeForRatio(ratio.w, ratio.h), refs, model: activeModel })
+        const img = await generateImage({ prompt, size: ratio.id === 'auto' ? undefined : sizeForRatio(ratio.w, ratio.h), refs, model: activeModel }, controller.signal)
         updateMessage(id, aiId, { status: 'done', images: [img], text: '' })
       }
     } catch (err) {
-      updateMessage(id, aiId, { status: 'error', text: err.message })
+      if (err?.name === 'AbortError' || /aborted/i.test(err?.message || '')) {
+        updateMessage(id, aiId, { status: 'error', text: '已中断生成' })
+      } else {
+        updateMessage(id, aiId, { status: 'error', text: err.message })
+      }
     } finally {
+      abortRef.current = null
       setBusy(false)
       setTimeout(() => taRef.current?.focus(), 0)
+    }
+  }
+
+  const stopGenerate = () => {
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
     }
   }
 
@@ -252,7 +302,21 @@ export default function ChatPage({ chatId }) {
   const messages = chat?.messages || []
 
   return (
-    <div className="chat-page">
+    <div
+      className="chat-page"
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onPaste={handlePaste}
+    >
+      {dragOver && (
+        <div className="chat-drop-overlay">
+          <div className="chat-drop-text">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            松开以添加参考图
+          </div>
+        </div>
+      )}
       <div className="chat-scroll" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="chat-hero">
@@ -445,18 +509,24 @@ export default function ChatPage({ chatId }) {
             </div>
 
             <div className="spacer" />
-            <button
-              className={`send-btn ${busy ? 'busy' : ''}`}
-              onClick={() => send()}
-              disabled={busy || !input.trim()}
-              title="发送"
-            >
-              {busy ? (
-                <span className="spinner" />
-              ) : (
+            {busy ? (
+              <button
+                className="send-btn stop-btn"
+                onClick={stopGenerate}
+                title="中断生成"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+              </button>
+            ) : (
+              <button
+                className="send-btn"
+                onClick={() => send()}
+                disabled={!input.trim()}
+                title="发送"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z" /></svg>
-              )}
-            </button>
+              </button>
+            )}
           </div>
           <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { attach(e.target.files); e.target.value = '' }} />
         </div>

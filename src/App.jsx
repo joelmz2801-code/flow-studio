@@ -1,15 +1,32 @@
 import React from 'react'
 import { useStore } from './store.js'
+import { useAuth } from './useAuth.js'
 import Sidebar from './Sidebar.jsx'
 import ChatPage from './ChatPage.jsx'
 import FlowPage from './FlowPage.jsx'
 import SettingsModal from './SettingsModal.jsx'
 import PromptLibrary from './PromptLibrary.jsx'
+import AuthPage from './AuthPage.jsx'
 
 export default function App() {
   const activeView = useStore((s) => s.activeView)
   const mobileNavOpen = useStore((s) => s.mobileNavOpen)
   const setMobileNavOpen = useStore((s) => s.setMobileNavOpen)
+  const { user, loading, isAuthEnabled } = useAuth()
+
+  // 加载中
+  if (loading) {
+    return (
+      <div className="app" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span className="spinner spinner-blue" style={{ width: 24, height: 24 }} />
+      </div>
+    )
+  }
+
+  // 未登录且 auth 已启用 → 显示登录页
+  if (isAuthEnabled && !user) {
+    return <AuthPage />
+  }
 
   return (
     <div className="app">

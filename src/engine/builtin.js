@@ -28,7 +28,6 @@ const _P = {
 
 // 对话框中展示的内置模型
 export const BUILTIN_MODELS = [
-  { id: 'image-2', label: 'Image 2', provider: 'xy', apiModel: 'gpt-image-2', desc: '多通道保障 · 高质量', type: 'image' },
   { id: 'agnes-image-2.1-flash', label: 'Agnes 2.1 Flash', provider: 'ag', apiModel: 'agnes-image-2.1-flash', desc: 'Agnes 通道 · 快速', type: 'image' },
   { id: 'agnes-image-2.0-flash', label: 'Agnes 2.0 Flash', provider: 'ag', apiModel: 'agnes-image-2.0-flash', desc: 'Agnes 通道 · 经典', type: 'image' },
   { id: 'agnes-video-2.0', label: 'Agnes 视频文本', provider: 'ag', apiModel: 'agnes-video-v2.0', desc: 'Agnes 官方视频模型', type: 'video' },
@@ -72,16 +71,16 @@ export function isQuotaError(err) {
   return /quota|insufficient|balance|exceed|limit|billing|余额|额度|欠费|不足/.test(msg)
 }
 
-// 兼容旧接口：工作流节点默认配置（使用 xy 通道当前 Key）
+// 兼容旧接口：工作流节点默认配置（使用 ag 通道当前 Key）
 export function getBuiltinConfig() {
-  const r = resolveModel('image-2')
-  const idx = getKeyIndex('xy', r.keys.length)
+  const r = resolveModel('agnes-image-2.1-flash')
+  const idx = getKeyIndex('ag', r.keys.length)
   return {
     baseUrl: r.baseUrl,
     apiKey: r.keys[idx],
     imageModel: r.apiModel,
-    videoModel: 'sora-2',
+    videoModel: 'agnes-video-v2.0',
     imagePath: '/v1/images/generations',
-    videoPath: '/v1/videos/generations',
+    videoPath: '/v1/videos',
   }
 }
