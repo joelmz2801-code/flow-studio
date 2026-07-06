@@ -19,7 +19,10 @@ const _P = {
   },
   ag: {
     u: 'aHR0cHM6Ly9hcGlodWIuYWduZXMtYWkuY29t',
-    k: ['c2stdGd1Tm42b2dHRUtNd2NlSjk2U1dFc1NVdDZ1U1pOczltTzBOM0xsRDZFaTRHa2wz'],
+    k: [
+      'c2stdGd1Tm42b2dHRUtNd2NlSjk2U1dFc1NVdDZ1U1pOczltTzBOM0xsRDZFaTRHa2wz',
+      'c2stN1I1NGFObUYybjdEdXVqUU5XS3lwRnZINUQ0MmNpeWsxaFF6dTRxMlIwNU1HbHRm',
+    ],
   },
 }
 
