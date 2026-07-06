@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useStore } from './store.js'
+import { testApiConnection, fetchModelsList } from './engine/runner.js'
 
 const EMPTY = {
   name: '',
@@ -9,12 +10,19 @@ const EMPTY = {
   videoModel: '',
   imagePath: '/v1/images/generations',
   videoPath: '/v1/videos/generations',
+  models: [],
 }
 
 export default function SettingsModal() {
   const { settingsOpen, setSettingsOpen, presets, addPreset, updatePreset, removePreset } = useStore()
   const [activeId, setActiveId] = useState(presets[0]?.id || null)
   const [draft, setDraft] = useState(null)
+  
+  // Custom states
+  const [showKey, setShowKey] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [fetching, setFetching] = useState(false)
+  const [modelSearchQuery, setModelSearchQuery] = useState('')
 
   const active = presets.find((p) => p.id === activeId) || null
 
@@ -22,7 +30,9 @@ export default function SettingsModal() {
     if (settingsOpen) {
       const first = presets.find((p) => p.id === activeId) || presets[0]
       setActiveId(first?.id || null)
-      setDraft(first ? { ...first } : null)
+      setDraft(first ? { ...first, models: first.models || [] } : null)
+      setShowKey(false)
+      setModelSearchQuery('')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen])
@@ -31,18 +41,19 @@ export default function SettingsModal() {
 
   const select = (p) => {
     setActiveId(p.id)
-    setDraft({ ...p })
+    setDraft({ ...p, models: p.models || [] })
+    setShowKey(false)
+    setModelSearchQuery('')
   }
 
   const create = () => {
     const preset = { ...EMPTY, name: `预设 ${presets.length + 1}` }
     addPreset(preset)
-    // addPreset 生成 id，选中最新一个
     setTimeout(() => {
       const list = useStore.getState().presets
       const last = list[list.length - 1]
       setActiveId(last.id)
-      setDraft({ ...last })
+      setDraft({ ...last, models: last.models || [] })
     }, 0)
   }
 
@@ -58,12 +69,152 @@ export default function SettingsModal() {
       const list = useStore.getState().presets
       const first = list[0] || null
       setActiveId(first?.id || null)
-      setDraft(first ? { ...first } : null)
+      setDraft(first ? { ...first, models: first.models || [] } : null)
     }, 0)
   }
 
   const set = (k) => (e) => setDraft((d) => ({ ...d, [k]: e.target.value }))
   const dirty = active && draft && JSON.stringify(pick(active)) !== JSON.stringify(pick(draft))
+
+  // Model actions
+  const toggleModelVisible = (modelId) => {
+    setDraft((d) => ({
+      ...d,
+      models: (d.models || []).map((m) =>
+        m.id === modelId ? { ...m, visible: !m.visible } : m
+      )
+    }))
+  }
+
+  const toggleModelDefault = (modelId) => {
+    setDraft((d) => {
+      const updatedModels = (d.models || []).map((m) => {
+        if (m.id === modelId) {
+          return { ...m, isDefault: !m.isDefault }
+        }
+        // Clear isDefault for models of the same type
+        const targetModel = d.models.find(x => x.id === modelId)
+        if (targetModel && m.type === targetModel.type) {
+          return { ...m, isDefault: false }
+        }
+        return m
+      })
+
+      const targetModel = d.models.find(x => x.id === modelId)
+      const patch = { models: updatedModels }
+      if (targetModel) {
+        const willBeDefault = !targetModel.isDefault
+        if (targetModel.type === 'video') {
+          patch.videoModel = willBeDefault ? modelId : ''
+        } else {
+          patch.imageModel = willBeDefault ? modelId : ''
+        }
+      }
+      return { ...d, ...patch }
+    })
+  }
+
+  const toggleModelType = (modelId) => {
+    setDraft((d) => ({
+      ...d,
+      models: (d.models || []).map((m) =>
+        m.id === modelId ? { ...m, type: m.type === 'video' ? 'image' : 'video' } : m
+      )
+    }))
+  }
+
+  const deleteModel = (modelId) => {
+    setDraft((d) => ({
+      ...d,
+      models: (d.models || []).filter((m) => m.id !== modelId)
+    }))
+  }
+
+  const handleAddModelPrompt = () => {
+    const name = window.prompt('请输入自定义模型名称：')
+    if (!name || !name.trim()) return
+    const id = name.trim()
+    setDraft((d) => {
+      const exists = (d.models || []).some(m => m.id === id)
+      if (exists) return d
+      const newModel = {
+        id,
+        visible: true,
+        isDefault: false,
+        type: id.includes('video') || id.includes('sora') ? 'video' : 'image'
+      }
+      return { ...d, models: [...(d.models || []), newModel] }
+    })
+  }
+
+  const fetchPresetModels = async () => {
+    if (!draft.baseUrl) {
+      alert('请先填写 Base URL')
+      return
+    }
+    setFetching(true)
+    try {
+      const list = await fetchModelsList(draft.baseUrl, draft.apiKey)
+      setDraft((d) => {
+        const currentModels = d.models || []
+        const newModels = [...currentModels]
+        list.forEach((modelId) => {
+          if (!newModels.some((m) => m.id === modelId)) {
+            newModels.push({
+              id: modelId,
+              visible: true,
+              isDefault: false,
+              type: modelId.includes('video') || modelId.includes('sora') ? 'video' : 'image'
+            })
+          }
+        })
+        return { ...d, models: newModels }
+      })
+      alert(`获取成功！已加载 ${list.length} 个模型。`)
+    } catch (err) {
+      alert(`获取失败：${err.message}`)
+    } finally {
+      setFetching(false)
+    }
+  }
+
+  const handleTestConnection = async () => {
+    if (!draft.baseUrl) {
+      alert('请先填写 Base URL')
+      return
+    }
+    setTesting(true)
+    try {
+      const res = await testApiConnection(draft.baseUrl, draft.apiKey)
+      if (res.success) {
+        alert(`连接成功！可用模型数: ${res.count}`)
+      } else {
+        alert(`连接失败：${res.error}`)
+      }
+    } catch (err) {
+      alert(`测试异常：${err.message}`)
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  // Group models by prefix
+  const getGroup = (modelId) => {
+    if (modelId.includes('/')) return modelId.split('/')[0]
+    if (modelId.includes('-')) return modelId.split('-')[0]
+    return '其他'
+  }
+
+  const filteredModels = (draft?.models || []).filter(m => 
+    !modelSearchQuery || m.id.toLowerCase().includes(modelSearchQuery.toLowerCase())
+  )
+
+  const groupedModels = {}
+  filteredModels.forEach((m) => {
+    const group = getGroup(m.id)
+    if (!groupedModels[group]) groupedModels[group] = []
+    groupedModels[group].push(m)
+  })
 
   return (
     <div className="modal-mask" onMouseDown={(e) => { if (e.target === e.currentTarget) setSettingsOpen(false) }}>
@@ -99,36 +250,108 @@ export default function SettingsModal() {
                   <span>预设名称</span>
                   <input value={draft.name} placeholder="例如：中转站 A / 官方 API" onChange={set('name')} />
                 </label>
-                <label className="f">
-                  <span>Base URL</span>
-                  <input value={draft.baseUrl} placeholder="https://api.example.com" onChange={set('baseUrl')} />
-                </label>
-                <label className="f">
-                  <span>API Key</span>
-                  <input type="password" value={draft.apiKey} placeholder="sk-..." onChange={set('apiKey')} />
-                </label>
-                <div className="f-row">
-                  <label className="f">
-                    <span>图片模型</span>
-                    <input value={draft.imageModel} placeholder="gpt-image-1" onChange={set('imageModel')} />
-                  </label>
-                  <label className="f">
-                    <span>视频模型</span>
-                    <input value={draft.videoModel} placeholder="sora-2" onChange={set('videoModel')} />
-                  </label>
-                </div>
-                <div className="f-row">
-                  <label className="f">
-                    <span>图片接口路径</span>
-                    <input className="mono" value={draft.imagePath} onChange={set('imagePath')} />
-                  </label>
-                  <label className="f">
-                    <span>视频接口路径</span>
-                    <input className="mono" value={draft.videoPath} onChange={set('videoPath')} />
-                  </label>
+                
+                <div className="f">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>API 密钥</span>
+                    <button className="test-btn" onClick={handleTestConnection} disabled={testing}>
+                      {testing ? '检测中...' : '检测'}
+                    </button>
+                  </div>
+                  <div className="key-input-container">
+                    <input 
+                      type={showKey ? 'text' : 'password'} 
+                      value={draft.apiKey} 
+                      placeholder="sk-..." 
+                      onChange={set('apiKey')} 
+                    />
+                    <button className="show-key-btn" onClick={(e) => { e.preventDefault(); setShowKey(!showKey); }}>
+                      {showKey ? '🔒' : '👁️'}
+                    </button>
+                  </div>
+                  <span className="sub-hint">多个密钥使用逗号分隔</span>
                 </div>
 
-                <div className="form-actions">
+                <label className="f">
+                  <span>API 地址</span>
+                  <input value={draft.baseUrl} placeholder="https://api.example.com" onChange={set('baseUrl')} />
+                  <span className="sub-hint">预览: {draft.baseUrl ? `${draft.baseUrl}/v1/chat/completions` : '未设置'}</span>
+                </label>
+
+                {/* Model Configuration Area */}
+                <div className="f" style={{ marginTop: '8px' }}>
+                  <div className="model-header-row">
+                    <div className="model-header-title">
+                      <span>模型</span>
+                      <span className="model-count-badge">{(draft.models || []).filter(m => m.visible).length}</span>
+                    </div>
+                    <div className="model-header-actions">
+                      <button className="model-top-btn" onClick={(e) => { e.preventDefault(); fetchPresetModels(); }} disabled={fetching}>
+                        {fetching ? '获取中...' : '获取模型列表'}
+                      </button>
+                      <button className="model-top-btn add-btn" onClick={(e) => { e.preventDefault(); handleAddModelPrompt(); }} title="手动添加模型">+</button>
+                    </div>
+                  </div>
+
+                  <input 
+                    type="text" 
+                    className="model-inner-search"
+                    placeholder="搜索模型..." 
+                    value={modelSearchQuery}
+                    onChange={(e) => setModelSearchQuery(e.target.value)}
+                  />
+
+                  <div className="settings-model-list">
+                    {Object.keys(groupedModels).length === 0 ? (
+                      <div className="no-models-hint">无可用模型，点击“获取模型列表”加载</div>
+                    ) : (
+                      Object.entries(groupedModels).map(([groupName, groupItems]) => (
+                        <div key={groupName} className="settings-model-group">
+                          <div className="settings-group-title">{groupName}</div>
+                          <div className="settings-group-items">
+                            {groupItems.map((m) => (
+                              <div key={m.id} className="settings-model-item">
+                                <span className="settings-model-name" title={m.id}>{m.id}</span>
+                                <div className="settings-model-item-actions">
+                                  <button 
+                                    className={`action-icon-btn visible-toggle ${m.visible ? 'active' : ''}`}
+                                    onClick={(e) => { e.preventDefault(); toggleModelVisible(m.id); }}
+                                    title={m.visible ? '已选择 (在对话框中显示)' : '未选择 (在对话框中隐藏)'}
+                                  >
+                                    👁️
+                                  </button>
+                                  <button 
+                                    className={`action-icon-btn default-toggle ${m.isDefault ? 'active' : ''}`}
+                                    onClick={(e) => { e.preventDefault(); toggleModelDefault(m.id); }}
+                                    title={m.isDefault ? '已设为默认' : '设为默认'}
+                                  >
+                                    ☀️
+                                  </button>
+                                  <button 
+                                    className="action-icon-btn type-toggle"
+                                    onClick={(e) => { e.preventDefault(); toggleModelType(m.id); }}
+                                    title={`类型: ${m.type || 'image'} (点击切换)`}
+                                  >
+                                    🔧 <span className="type-badge">{m.type || 'image'}</span>
+                                  </button>
+                                  <button 
+                                    className="action-icon-btn delete-btn"
+                                    onClick={(e) => { e.preventDefault(); deleteModel(m.id); }}
+                                    title="删除模型"
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="form-actions" style={{ marginTop: '16px' }}>
                   <button className="btn-danger" onClick={remove}>删除预设</button>
                   <div className="spacer" />
                   <button className="btn-primary" onClick={save} disabled={!dirty}>
@@ -145,6 +368,6 @@ export default function SettingsModal() {
 }
 
 function pick(o) {
-  const { name, baseUrl, apiKey, imageModel, videoModel, imagePath, videoPath } = o
-  return { name, baseUrl, apiKey, imageModel, videoModel, imagePath, videoPath }
+  const { name, baseUrl, apiKey, imageModel, videoModel, imagePath, videoPath, models } = o
+  return { name, baseUrl, apiKey, imageModel, videoModel, imagePath, videoPath, models: models || [] }
 }

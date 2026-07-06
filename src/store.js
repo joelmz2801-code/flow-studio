@@ -19,6 +19,10 @@ const DEFAULT_PRESETS = [
     videoModel: 'sora-2',
     imagePath: '/v1/images/generations',
     videoPath: '/v1/videos/generations',
+    models: [
+      { id: 'gpt-image-1', visible: true, isDefault: true, type: 'image' },
+      { id: 'sora-2', visible: true, isDefault: true, type: 'video' }
+    ]
   },
 ]
 
@@ -27,7 +31,12 @@ function loadPresets() {
     const raw = localStorage.getItem(PRESET_KEY)
     if (raw) {
       const arr = JSON.parse(raw)
-      if (Array.isArray(arr) && arr.length) return arr
+      if (Array.isArray(arr) && arr.length) {
+        return arr.map(p => ({
+          ...p,
+          models: p.models || []
+        }))
+      }
     }
   } catch { /* ignore */ }
   return DEFAULT_PRESETS
@@ -36,6 +45,7 @@ function loadPresets() {
 function persistPresets(presets) {
   try { localStorage.setItem(PRESET_KEY, JSON.stringify(presets)) } catch { /* ignore */ }
 }
+
 
 const initialPresets = loadPresets()
 const firstPreset = initialPresets[0]

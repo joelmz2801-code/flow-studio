@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from './store.js'
-import { generateImage, downloadMedia, listModels } from './engine/runner.js'
+import { generateImage, generateVideo, downloadMedia, listModels } from './engine/runner.js'
 import { BUILTIN_MODELS, DEFAULT_MODEL } from './engine/builtin.js'
+
 
 // ── 画幅比例（附使用场景说明）──────────────────
 const RATIOS = [
@@ -93,8 +94,42 @@ export default function ChatPage({ chatId }) {
   const stylePop = usePopover()
   const modelPop = usePopover()
   const [model, setModel] = useState(() => localStorage.getItem('jfs-model') || DEFAULT_MODEL)
-  const [models, setModels] = useState(null)      // null=未加载 []=失败或为空
   const [modelQuery, setModelQuery] = useState('')
+
+  const presets = useStore((s) => s.presets)
+
+  const allVisibleModels = []
+  BUILTIN_MODELS.forEach((b) => {
+    allVisibleModels.push({
+      id: b.id,
+      label: b.label,
+      desc: b.desc,
+      type: b.type || 'image',
+      isBuiltin: true
+    })
+  })
+  presets.forEach((p) => {
+    if (p.models && Array.isArray(p.models)) {
+      p.models.forEach((m) => {
+        if (m.visible) {
+          allVisibleModels.push({
+            id: m.id,
+            label: m.id,
+            desc: `${m.type === 'video' ? '视频模型' : '图片模型'} | ${p.name || '自定义'}`,
+            type: m.type || 'image',
+            isBuiltin: false
+          })
+        }
+      })
+    }
+  })
+
+  useEffect(() => {
+    if (allVisibleModels.length > 0 && !allVisibleModels.some(m => m.id === model)) {
+      const defaultModel = allVisibleModels.find(m => m.isDefault)?.id || allVisibleModels[0].id
+      setModel(defaultModel)
+    }
+  }, [allVisibleModels, model])
 
   const pickModel = (m) => {
     setModel(m)
@@ -103,10 +138,6 @@ export default function ChatPage({ chatId }) {
     setModelQuery('')
   }
 
-  useEffect(() => {
-    if (!modelPop.open || models !== null) return
-    listModels().then(setModels).catch(() => setModels([]))
-  }, [modelPop.open])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -127,6 +158,9 @@ export default function ChatPage({ chatId }) {
     ratioPop.setOpen(false)
   }
 
+  const activeModelObj = allVisibleModels.find(m => m.id === model)
+  const isVideo = activeModelObj?.type === 'video'
+
   const send = async (textOverride) => {
     const text = (textOverride ?? input).trim()
     if (!text || busy) return
@@ -146,7 +180,8 @@ export default function ChatPage({ chatId }) {
 
     const aiId = `m${Date.now()}a`
     appendMessage(id, {
-      id: aiId, role: 'assistant', status: 'loading', text: '', images: [],
+      id: aiId, role: 'assistant', status: 'loading', text: '', images: [], videos: [],
+      mediaType: isVideo ? 'video' : 'image',
       ratio: ratio.id === 'auto' ? null : { w: ratio.w, h: ratio.h }, time: Date.now(),
     })
 
@@ -155,8 +190,13 @@ export default function ChatPage({ chatId }) {
     setBusy(true)
     try {
       const prompt = style.prompt ? `${text}\n\n画面风格：${style.prompt}` : text
-      const img = await generateImage({ prompt, size: ratio.id === 'auto' ? undefined : sizeForRatio(ratio.w, ratio.h), refs, model })
-      updateMessage(id, aiId, { status: 'done', images: [img], text: '' })
+      if (isVideo) {
+        const video = await generateVideo({ prompt, model, refImage: refs[0] })
+        updateMessage(id, aiId, { status: 'done', videos: [video], text: '' })
+      } else {
+        const img = await generateImage({ prompt, size: ratio.id === 'auto' ? undefined : sizeForRatio(ratio.w, ratio.h), refs, model })
+        updateMessage(id, aiId, { status: 'done', images: [img], text: '' })
+      }
     } catch (err) {
       updateMessage(id, aiId, { status: 'error', text: err.message })
     } finally {
@@ -164,6 +204,7 @@ export default function ChatPage({ chatId }) {
       setTimeout(() => taRef.current?.focus(), 0)
     }
   }
+
 
   const onKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -297,7 +338,8 @@ export default function ChatPage({ chatId }) {
             <div className="pop-anchor" ref={modelPop.ref}>
               <button className={`pill-btn ${modelPop.open ? 'active' : ''}`} onClick={() => modelPop.setOpen(!modelPop.open)} title="选择生图模型">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg>
-                <span className="pill-model">{BUILTIN_MODELS.find((b) => b.id === model)?.label || model}</span>
+                <span className="pill-model">{allVisibleModels.find((b) => b.id === model)?.label || model}</span>
+
               </button>
               {modelPop.open && (
                 <div className="popover popover-models">
@@ -313,13 +355,13 @@ export default function ChatPage({ chatId }) {
                   <div className="model-list">
                     {(() => {
                       const q = modelQuery.trim().toLowerCase()
-                      const builtins = BUILTIN_MODELS.filter(
-                        (b) => !q || b.label.toLowerCase().includes(q) || b.id.toLowerCase().includes(q)
+                      const filtered = allVisibleModels.filter(
+                        (m) => !q || m.id.toLowerCase().includes(q) || m.label.toLowerCase().includes(q)
                       )
-                      const builtinIds = new Set(BUILTIN_MODELS.map((b) => b.id))
-                      const extra = (models || []).filter(
-                        (m) => !builtinIds.has(m) && (!q || m.toLowerCase().includes(q))
-                      )
+                      
+                      const builtins = filtered.filter(m => m.isBuiltin)
+                      const customs = filtered.filter(m => !m.isBuiltin)
+                      
                       return (
                         <>
                           {builtins.length > 0 && <div className="model-group">内置模型</div>}
@@ -332,28 +374,26 @@ export default function ChatPage({ chatId }) {
                               {model === b.id && <span className="pop-check">✓</span>}
                             </button>
                           ))}
-                          {models === null && <div className="model-hint">正在获取更多模型…</div>}
-                          {extra.length > 0 && <div className="model-group">更多模型</div>}
-                          {extra.map((m) => (
-                            <button key={m} className={`pop-item model-item ${model === m ? 'selected' : ''}`} onClick={() => pickModel(m)}>
-                              <span className="pop-item-main"><b>{m}</b></span>
-                              {model === m && <span className="pop-check">✓</span>}
+                          
+                          {customs.length > 0 && <div className="model-group">自定义模型</div>}
+                          {customs.map((c) => (
+                            <button key={c.id} className={`pop-item model-item ${model === c.id ? 'selected' : ''}`} onClick={() => pickModel(c.id)}>
+                              <span className="pop-item-main">
+                                <b>{c.label}</b>
+                                <small>{c.desc}</small>
+                              </span>
+                              {model === c.id && <span className="pop-check">✓</span>}
                             </button>
                           ))}
-                          {models !== null && !builtins.length && !extra.length && (
-                            <div className="model-hint">
-                              没有匹配的模型{q ? <>，按 Enter 使用 “{modelQuery.trim()}”</> : ''}
-                            </div>
+                          
+                          {filtered.length === 0 && (
+                            <div className="model-hint">没有匹配的已启用模型</div>
                           )}
                         </>
                       )
                     })()}
                   </div>
-                  {modelQuery.trim() && !(models || []).includes(modelQuery.trim()) && (
-                    <button className="model-use-custom" onClick={() => pickModel(modelQuery.trim())}>
-                      使用自定义模型 “{modelQuery.trim()}”
-                    </button>
-                  )}
+
                 </div>
               )}
             </div>
@@ -427,7 +467,7 @@ function Message({ m }) {
             <div className="gen-sheen" />
             <div className="gen-frame-label">
               <span className="spinner spinner-blue" />
-              正在绘制…
+              {m.mediaType === 'video' ? '正在生成视频…' : '正在绘制…'}
             </div>
           </div>
         )}
@@ -435,13 +475,48 @@ function Message({ m }) {
         {m.images?.filter(Boolean).map((img, i) => (
           <RevealImage key={i} src={img} ratio={ar} />
         ))}
-        {m.status === 'done' && m.images?.filter(Boolean).length === 0 && (
-          <div className="gen-error">（图片数据未保留，仅保存了会话记录）</div>
+        {m.videos?.filter(Boolean).map((vid, i) => (
+          <RevealVideo key={i} src={vid} ratio={ar} />
+        ))}
+        {m.status === 'done' && m.images?.filter(Boolean).length === 0 && m.videos?.filter(Boolean).length === 0 && (
+          <div className="gen-error">（媒体数据未保留，仅保存了会话记录）</div>
         )}
       </div>
     </div>
   )
 }
+
+function RevealVideo({ src, ratio }) {
+  const [loaded, setLoaded] = useState(false)
+  return (
+    <div className="gen-video" style={!loaded ? { aspectRatio: ratio } : undefined}>
+      {!loaded && (
+        <div className="gen-frame gen-frame-fill">
+          <div className="gen-mist" />
+          <div className="gen-sheen" />
+        </div>
+      )}
+      <video
+        src={src}
+        controls
+        muted
+        loop
+        className={loaded ? 'reveal' : 'pending'}
+        onLoadedData={() => setLoaded(true)}
+        style={{ display: loaded ? 'block' : 'none', width: '100%', borderRadius: '14px', border: '1px solid var(--border)' }}
+      />
+      {loaded && (
+        <div className="gen-actions">
+          <button onClick={() => downloadMedia(src, `joel-flow-studio-${Date.now()}`)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+            下载视频
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 // 图片加载完成后：先模糊显现，再逐渐晕染清晰
 function RevealImage({ src, ratio }) {

@@ -1,4 +1,6 @@
 import { getBuiltinConfig, resolveModel, getKeyIndex, setKeyIndex, isQuotaError, DEFAULT_MODEL } from './builtin.js'
+import { useStore } from '../store.js'
+
 // ─────────────────────────────────────────────
 // 工作流执行引擎：按连线拓扑递归求值，带缓存
 // ─────────────────────────────────────────────
@@ -243,14 +245,45 @@ function snapSizeForModel(apiModel, size) {
   return '1024x1024'
 }
 
+export function resolveModelWithPresets(modelId, presets) {
+  if (presets && Array.isArray(presets)) {
+    for (const p of presets) {
+      if (p.models && Array.isArray(p.models)) {
+        const found = p.models.find((m) => m.id === modelId)
+        if (found) {
+          return {
+            providerId: 'custom',
+            baseUrl: p.baseUrl,
+            keys: p.apiKey ? p.apiKey.split(',').map(k => k.trim()).filter(Boolean) : [],
+            apiModel: found.id,
+            imagePath: p.imagePath || '/v1/images/generations',
+            videoPath: p.videoPath || '/v1/videos/generations',
+            type: found.type || 'image'
+          }
+        }
+      }
+    }
+  }
+  const builtin = resolveModel(modelId)
+  return {
+    ...builtin,
+    videoPath: '/v1/videos/generations',
+    type: 'image'
+  }
+}
+
 export async function generateImage({ prompt, size, refs = [], model }, signal) {
-  const ch = resolveModel(model || DEFAULT_MODEL)
+  const presets = useStore.getState().presets
+  const ch = resolveModelWithPresets(model || DEFAULT_MODEL, presets)
   const body = { model: ch.apiModel, prompt, n: 1 }
   const snapped = snapSizeForModel(ch.apiModel, size)
   if (snapped) body.size = snapped
   if (refs?.length) body.image = refs
 
   const total = ch.keys.length
+  if (total === 0) {
+    throw new Error('API Key 不能为空，请在设置中配置。')
+  }
   const start = getKeyIndex(ch.providerId, total)
   let lastErr
   for (let i = 0; i < total; i++) {
@@ -259,17 +292,101 @@ export async function generateImage({ prompt, size, refs = [], model }, signal) 
       const json = await apiPost(joinUrl(ch.baseUrl, ch.imagePath), ch.keys[idx], body, signal)
       const img = extractImage(json)
       if (!img) throw new Error('响应中未找到图片: ' + JSON.stringify(json).slice(0, 200))
-      if (idx !== start) setKeyIndex(ch.providerId, idx) // 记住可用通道
+      if (idx !== start && ch.providerId !== 'custom') setKeyIndex(ch.providerId, idx)
       return img
     } catch (err) {
       if (err?.name === 'AbortError') throw err
       lastErr = err
-      // 额度类错误 → 静默切换下一个 Key；其他错误直接抛出
       if (isQuotaError(err) && i < total - 1) continue
       if (!isQuotaError(err)) throw err
     }
   }
   throw lastErr
+}
+
+export async function generateVideo({ prompt, model, refImage }, signal) {
+  const presets = useStore.getState().presets
+  const ch = resolveModelWithPresets(model, presets)
+  const body = { model: ch.apiModel, prompt }
+  if (refImage) body.image = refImage
+
+  const total = ch.keys.length
+  if (total === 0) {
+    throw new Error('API Key 不能为空，请在设置中配置。')
+  }
+  
+  const url = joinUrl(ch.baseUrl, ch.videoPath || '/v1/videos/generations')
+  // We try using the keys
+  let lastErr
+  for (let idx = 0; idx < total; idx++) {
+    try {
+      const apiKey = ch.keys[idx]
+      let json = await apiPost(url, apiKey, body, signal)
+      let video = extractVideo(json)
+      const taskId = json?.id || json?.task_id
+      let tries = 0
+      while (!video && taskId && tries < 60) {
+        if (signal?.aborted) throw new Error('aborted')
+        await sleep(5000)
+        json = await apiGet(`${url}/${taskId}`, apiKey, signal)
+        const status = (json?.status || '').toLowerCase()
+        if (['failed', 'error', 'cancelled'].includes(status)) {
+          throw new Error('视频任务失败: ' + JSON.stringify(json).slice(0, 200))
+        }
+        video = extractVideo(json)
+        tries++
+      }
+      if (!video) throw new Error('未获取到视频结果')
+      return video
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err
+      lastErr = err
+      if (isQuotaError(err) && idx < total - 1) continue
+      throw err
+    }
+  }
+  throw lastErr
+}
+
+export async function fetchModelsList(baseUrl, apiKey) {
+  const endpoints = ['/v1/models', '/api/v1/models', '/models']
+  const keys = apiKey ? apiKey.split(',').map(k => k.trim()).filter(Boolean) : []
+  const keyToUse = keys[0] || ''
+  
+  let lastErr
+  for (const ep of endpoints) {
+    try {
+      const url = joinUrl(baseUrl, ep)
+      const res = await fetch(url, {
+        headers: keyToUse ? { Authorization: `Bearer ${keyToUse}` } : {},
+        signal: AbortSignal.timeout(6000)
+      })
+      if (res.ok) {
+        const json = await res.json()
+        const ids = (json.data || json.models || [])
+          .map((m) => (typeof m === 'string' ? m : m.id))
+          .filter(Boolean)
+        if (ids.length > 0) {
+          return [...new Set(ids)].sort()
+        }
+      } else {
+        const text = await res.text()
+        lastErr = new Error(`HTTP ${res.status}: ${text.slice(0, 100)}`)
+      }
+    } catch (err) {
+      lastErr = err
+    }
+  }
+  throw lastErr || new Error('无法连接到 API 地址获取模型列表，请检查网络或配置。')
+}
+
+export async function testApiConnection(baseUrl, apiKey) {
+  try {
+    const list = await fetchModelsList(baseUrl, apiKey)
+    return { success: true, count: list.length }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
 }
 
 // 拉取可用模型列表（xy 通道，用于自定义模型搜索）
@@ -286,3 +403,4 @@ export async function listModels() {
     .filter(Boolean)
   return [...new Set(ids)].sort()
 }
+
