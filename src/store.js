@@ -126,6 +126,21 @@ export const useStore = create((set, get) => ({
   setMobileNavOpen: (v) => set({ mobileNavOpen: v }),
   setSearchQuery: (q) => set({ searchQuery: q }),
 
+  // ── 提示词灵感库 ──
+  promptLibOpen: false,
+  pendingPrompt: null,
+  setPromptLibOpen: (v) => set({ promptLibOpen: v }),
+  usePrompt: (text) => {
+    const st = get()
+    let view = st.activeView
+    if (view.type !== 'chat' || !view.id) {
+      if (st.chats.length) view = { type: 'chat', id: st.chats[0].id }
+      else { st.createChat(); view = get().activeView }
+    }
+    set({ pendingPrompt: text, activeView: view, promptLibOpen: false, mobileNavOpen: false })
+  },
+  consumePendingPrompt: () => set({ pendingPrompt: null }),
+
   // ── 对话 CRUD ──
   createChat: () => {
     const chat = { id: newChatId(), title: '新对话', messages: [], createdAt: Date.now() }

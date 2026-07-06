@@ -68,10 +68,18 @@ function usePopover() {
 
 export default function ChatPage({ chatId }) {
   const chats = useStore((s) => s.chats)
-  const { createChat, appendMessage, updateMessage, renameChat } = useStore()
+  const { createChat, appendMessage, updateMessage, renameChat, setPromptLibOpen, consumePendingPrompt } = useStore()
+  const pendingPrompt = useStore((st) => st.pendingPrompt)
   const chat = chats.find((c) => c.id === chatId) || null
 
   const [input, setInput] = useState('')
+  useEffect(() => {
+    if (pendingPrompt) {
+      setInput(pendingPrompt)
+      consumePendingPrompt()
+      setTimeout(() => taRef.current?.focus(), 60)
+    }
+  }, [pendingPrompt])
   const [ratio, setRatio] = useState(RATIOS[0])
   const [style, setStyle] = useState(STYLES[0])
   const [customW, setCustomW] = useState('')
@@ -217,6 +225,11 @@ export default function ChatPage({ chatId }) {
             {/* 回形针：上传参考图 */}
             <button className="icon-btn" title="添加参考图（最多 4 张）" onClick={() => fileRef.current?.click()}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
+            </button>
+
+            {/* 提示词灵感库 */}
+            <button className="icon-btn" title="提示词灵感库" onClick={() => setPromptLibOpen(true)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.5 1 2.5h6c0-1 .4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
             </button>
 
             {/* 画幅比例选择 */}

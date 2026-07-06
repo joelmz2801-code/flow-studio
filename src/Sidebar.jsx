@@ -16,7 +16,7 @@ export default function Sidebar() {
   const {
     chats, activeView, sidebarCollapsed, searchQuery, mobileNavOpen,
     setActiveView, toggleSidebar, setSearchQuery, setMobileNavOpen,
-    createChat, removeChat, setSettingsOpen,
+    createChat, removeChat, setSettingsOpen, setPromptLibOpen,
   } = useStore()
   const isMobile = useIsMobile()
   const closeNav = () => { if (isMobile) setMobileNavOpen(false) }
@@ -30,6 +30,7 @@ export default function Sidebar() {
       )
     : chats
   const showFlow = !q || '工作流节点'.includes(q) || 'workflow'.includes(q)
+  const showPlib = !q || '提示词灵感库'.includes(q) || 'prompt'.includes(q)
 
   const isFlow = activeView.type === 'flow'
 
@@ -55,6 +56,9 @@ export default function Sidebar() {
           title="工作流节点"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 8.5 15.5 15.5" strokeLinecap="round"/></svg>
+        </button>
+        <button className="icon-btn" onClick={() => setPromptLibOpen(true)} title="提示词灵感库">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.5 1 2.5h6c0-1 .4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
         </button>
         <div className="sb-spacer" />
         <button className="icon-btn" onClick={() => setSettingsOpen(true)} title="设置">
@@ -107,6 +111,15 @@ export default function Sidebar() {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 8.5 15.5 15.5" strokeLinecap="round"/></svg>
             </span>
             <span className="sb-item-label">工作流节点</span>
+          </button>
+        )}
+        {showPlib && (
+          <button className="sb-item" onClick={() => { setPromptLibOpen(true); closeNav() }}>
+            <span className="sb-item-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.5 1 2.5h6c0-1 .4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+            </span>
+            <span className="sb-item-label">提示词灵感库</span>
+            <span className="sb-item-badge">新</span>
           </button>
         )}
       </div>
