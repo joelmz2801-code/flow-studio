@@ -11,6 +11,21 @@ export const PRESET_FIELDS = ['baseUrl', 'apiKey', 'imageModel', 'videoModel', '
 
 const DEFAULT_PRESETS = [
   {
+    id: 'p-agnes',
+    name: 'Agnes 官方',
+    baseUrl: 'https://api.agnes-ai.com',
+    apiKey: '',
+    imageModel: 'agnes-image-2.1-flash',
+    videoModel: 'agnes-video-2.0',
+    imagePath: '/v1/images/generations',
+    videoPath: '/v1/videos/generations',
+    models: [
+      { id: 'agnes-image-2.1-flash', visible: true, isDefault: true, type: 'image' },
+      { id: 'agnes-image-2.0-flash', visible: true, isDefault: false, type: 'image' },
+      { id: 'agnes-video-2.0', visible: true, isDefault: true, type: 'video' }
+    ]
+  },
+  {
     id: 'p-openai',
     name: 'OpenAI 官方',
     baseUrl: 'https://api.openai.com',

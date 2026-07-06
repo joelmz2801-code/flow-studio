@@ -6,12 +6,19 @@ const EMPTY = {
   name: '',
   baseUrl: '',
   apiKey: '',
-  imageModel: '',
-  videoModel: '',
+  imageModel: 'agnes-image-2.1-flash',
+  videoModel: 'agnes-video-2.0',
   imagePath: '/v1/images/generations',
   videoPath: '/v1/videos/generations',
-  models: [],
+  models: [
+    { id: 'agnes-image-2.1-flash', visible: true, isDefault: true, type: 'image' },
+    { id: 'agnes-image-2.0-flash', visible: true, isDefault: false, type: 'image' },
+    { id: 'agnes-video-2.0', visible: true, isDefault: true, type: 'video' },
+    { id: 'gpt-image-1', visible: true, isDefault: false, type: 'image' },
+    { id: 'sora-2', visible: true, isDefault: false, type: 'video' }
+  ],
 }
+
 
 export default function SettingsModal() {
   const { settingsOpen, setSettingsOpen, presets, addPreset, updatePreset, removePreset } = useStore()
@@ -23,6 +30,13 @@ export default function SettingsModal() {
   const [testing, setTesting] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [modelSearchQuery, setModelSearchQuery] = useState('')
+  const [notify, setNotify] = useState(null) // { type: 'success'|'error'|'info', message: '...' }
+
+  const showNotification = (type, message) => {
+    setNotify({ type, message })
+    setTimeout(() => setNotify((prev) => prev?.message === message ? null : prev), 6000)
+  }
+
 
   const active = presets.find((p) => p.id === activeId) || null
 
@@ -149,7 +163,7 @@ export default function SettingsModal() {
 
   const fetchPresetModels = async () => {
     if (!draft.baseUrl) {
-      alert('请先填写 Base URL')
+      showNotification('info', '请先填写 Base URL')
       return
     }
     setFetching(true)
@@ -170,9 +184,9 @@ export default function SettingsModal() {
         })
         return { ...d, models: newModels }
       })
-      alert(`获取成功！已加载 ${list.length} 个模型。`)
+      showNotification('success', `获取成功！已加载 ${list.length} 个模型。`)
     } catch (err) {
-      alert(`获取失败：${err.message}`)
+      showNotification('error', `获取失败: ${err.message} (通常由于跨域CORS限制，您仍可在列表中手动添加/启用模型)`)
     } finally {
       setFetching(false)
     }
@@ -180,23 +194,24 @@ export default function SettingsModal() {
 
   const handleTestConnection = async () => {
     if (!draft.baseUrl) {
-      alert('请先填写 Base URL')
+      showNotification('info', '请先填写 Base URL')
       return
     }
     setTesting(true)
     try {
       const res = await testApiConnection(draft.baseUrl, draft.apiKey)
       if (res.success) {
-        alert(`连接成功！可用模型数: ${res.count}`)
+        showNotification('success', `连接成功！可用模型数: ${res.count}`)
       } else {
-        alert(`连接失败：${res.error}`)
+        showNotification('error', `连接失败: ${res.error}`)
       }
     } catch (err) {
-      alert(`测试异常：${err.message}`)
+      showNotification('error', `测试异常: ${err.message}`)
     } finally {
       setTesting(false)
     }
   }
+
 
   // Group models by prefix
   const getGroup = (modelId) => {
@@ -243,7 +258,14 @@ export default function SettingsModal() {
           </div>
 
           <div className="preset-form">
+            {notify && (
+              <div className={`preset-notify ${notify.type}`}>
+                <span>{notify.message}</span>
+                <button className="notify-close" onClick={(e) => { e.preventDefault(); setNotify(null); }}>✕</button>
+              </div>
+            )}
             {!draft && <div className="empty-hint">暂无预设，点击左侧「新建预设」开始</div>}
+
             {draft && (
               <>
                 <label className="f">

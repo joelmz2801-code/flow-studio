@@ -1,4 +1,5 @@
-import React, { useRef } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
+
 import { Handle, Position } from '@xyflow/react'
 import { useStore, pickPresetFields } from '../store.js'
 
@@ -69,8 +70,21 @@ export function ApiConfigNode({ id, data }) {
   const presets = useStore((s) => s.presets)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
 
-  const onPresetChange = (e) => {
-    const pid = e.target.value
+  const [dropOpen, setDropOpen] = useState(false)
+  const dropRef = useRef()
+
+  useEffect(() => {
+    if (!dropOpen) return
+    const onClickOutside = (e) => {
+      if (dropRef.current && !dropRef.current.contains(e.target)) {
+        setDropOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [dropOpen])
+
+  const onPresetChange = (pid) => {
     if (!pid) { up({ presetId: '' }); return }
     const p = presets.find((x) => x.id === pid)
     if (p) up({ presetId: pid, ...pickPresetFields(p) })
@@ -82,15 +96,35 @@ export function ApiConfigNode({ id, data }) {
     <Shell id={id} accent="blue" icon="⚙️" title="API 配置" subtitle="自定义或切换预设" status={data.status} error={data.error}>
       <Field label="预设">
         <div className="preset-row">
-          <select className="nodrag" value={data.presetId || ''} onChange={onPresetChange}>
-            <option value="">✏️ 自定义</option>
-            {presets.map((p) => (
-              <option key={p.id} value={p.id}>{p.name || '未命名预设'}</option>
-            ))}
-          </select>
+          <div className="custom-dropdown-container nodrag" ref={dropRef}>
+            <button className="custom-dropdown-btn" onClick={(e) => { e.preventDefault(); setDropOpen(!dropOpen); }}>
+              <span>{presets.find(p => p.id === data.presetId)?.name || '✏️ 自定义'}</span>
+              <span className="arrow">▼</span>
+            </button>
+            {dropOpen && (
+              <div className="custom-dropdown-menu">
+                <button 
+                  className={`custom-dropdown-item ${!data.presetId ? 'active' : ''}`}
+                  onClick={() => { onPresetChange(''); setDropOpen(false); }}
+                >
+                  ✏️ 自定义
+                </button>
+                {presets.map((p) => (
+                  <button 
+                    key={p.id}
+                    className={`custom-dropdown-item ${data.presetId === p.id ? 'active' : ''}`}
+                    onClick={() => { onPresetChange(p.id); setDropOpen(false); }}
+                  >
+                    {p.name || '未命名预设'}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button className="mini-btn nodrag" title="管理预设" onClick={() => setSettingsOpen(true)}>⚙</button>
         </div>
       </Field>
+
       <Field label="Base URL">
         <input className="nodrag" value={data.baseUrl || ''} placeholder="https://api.example.com" onChange={(e) => manual({ baseUrl: e.target.value })} />
       </Field>
