@@ -1,3 +1,4 @@
+import { getBuiltinConfig } from './builtin.js'
 // ─────────────────────────────────────────────
 // 工作流执行引擎：按连线拓扑递归求值，带缓存
 // ─────────────────────────────────────────────
@@ -116,8 +117,8 @@ export async function runGraph(targetIds, { nodes, edges, updateData }) {
           break
         }
         case 'imageGen': {
-          const config = await inputOf(id, 'config')
-          if (!config) throw new Error('请连接 API 配置节点')
+          // 未连接 API 配置时，自动使用内置通道
+          const config = (await inputOf(id, 'config')) || getBuiltinConfig()
           let refs = await inputOf(id, 'refs')
           if (typeof refs === 'string') refs = [refs]
           if (!d.prompt) throw new Error('请填写提示词')
@@ -136,8 +137,8 @@ export async function runGraph(targetIds, { nodes, edges, updateData }) {
           break
         }
         case 'videoGen': {
-          const config = await inputOf(id, 'config')
-          if (!config) throw new Error('请连接 API 配置节点')
+          // 未连接 API 配置时，自动使用内置通道
+          const config = (await inputOf(id, 'config')) || getBuiltinConfig()
           const refImage = await inputOf(id, 'image')
           if (!d.prompt) throw new Error('请填写提示词')
           const body = { model: config.videoModel, prompt: d.prompt }
@@ -217,4 +218,17 @@ export async function downloadMedia(media, filename) {
   a.download = `${filename}.${ext}`
   a.click()
   URL.revokeObjectURL(a.href)
+}
+
+// ─────────────────────────────────────────────
+// 对话式生图：供聊天页面调用（使用内置通道）
+// ─────────────────────────────────────────────
+export async function generateImage({ prompt, size = '1024x1024', refs = [] }, signal) {
+  const config = getBuiltinConfig()
+  const body = { model: config.imageModel, prompt, n: 1, size }
+  if (refs?.length) body.image = refs
+  const json = await apiPost(joinUrl(config.baseUrl, config.imagePath), config.apiKey, body, signal)
+  const img = extractImage(json)
+  if (!img) throw new Error('响应中未找到图片: ' + JSON.stringify(json).slice(0, 200))
+  return img
 }

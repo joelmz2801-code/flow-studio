@@ -41,20 +41,6 @@ const initialPresets = loadPresets()
 const firstPreset = initialPresets[0]
 
 const initialNodes = [
-  {
-    id: 'api1',
-    type: 'apiConfig',
-    position: { x: 40, y: 120 },
-    data: {
-      presetId: firstPreset?.id || '',
-      baseUrl: firstPreset?.baseUrl || 'https://api.openai.com',
-      apiKey: firstPreset?.apiKey || '',
-      imagePath: firstPreset?.imagePath || '/v1/images/generations',
-      videoPath: firstPreset?.videoPath || '/v1/videos/generations',
-      imageModel: firstPreset?.imageModel || 'gpt-image-1',
-      videoModel: firstPreset?.videoModel || 'sora-2',
-    },
-  },
   { id: 'ref1', type: 'refImage', position: { x: 40, y: 480 }, data: {} },
   { id: 'ref2', type: 'refImage', position: { x: 40, y: 700 }, data: {} },
   { id: 'agg1', type: 'refAggregate', position: { x: 340, y: 520 }, data: {} },
@@ -69,7 +55,6 @@ const initialNodes = [
 ]
 
 const initialEdges = [
-  { id: 'e1', source: 'api1', sourceHandle: 'config', target: 'gen1', targetHandle: 'config', animated: true },
   { id: 'e2', source: 'ref1', sourceHandle: 'image', target: 'agg1', targetHandle: 'img1', animated: true },
   { id: 'e3', source: 'ref2', sourceHandle: 'image', target: 'agg1', targetHandle: 'img2', animated: true },
   { id: 'e4', source: 'agg1', sourceHandle: 'images', target: 'gen1', targetHandle: 'refs', animated: true },
@@ -77,11 +62,109 @@ const initialEdges = [
   { id: 'e6', source: 'gen1', sourceHandle: 'image', target: 'save1', targetHandle: 'media', animated: true },
 ]
 
+
+// ── 对话会话：持久化到 localStorage ───────────
+const CHAT_KEY = 'flowstudio.chats.v1'
+
+function loadChats() {
+  try {
+    const raw = localStorage.getItem(CHAT_KEY)
+    if (raw) {
+      const arr = JSON.parse(raw)
+      if (Array.isArray(arr)) {
+        // 刷新页面时，把中断的生成任务标记为失败，避免一直转圈
+        return arr.map((c) => ({
+          ...c,
+          messages: (c.messages || []).map((m) =>
+            m.status === 'loading' ? { ...m, status: 'error', text: '生成已中断，请重新发送' } : m,
+          ),
+        }))
+      }
+    }
+  } catch { /* ignore */ }
+  return []
+}
+
+function persistChats(chats) {
+  try {
+    localStorage.setItem(CHAT_KEY, JSON.stringify(chats))
+  } catch {
+    // 存储超限时丢弃消息中的大图数据再试一次
+    try {
+      const slim = chats.map((c) => ({
+        ...c,
+        messages: c.messages.map((m) => ({
+          ...m,
+          images: (m.images || []).map((u) => (u.startsWith('data:') ? '' : u)),
+          refs: [],
+        })),
+      }))
+      localStorage.setItem(CHAT_KEY, JSON.stringify(slim))
+    } catch { /* ignore */ }
+  }
+}
+
+export const newChatId = () => `c${Date.now()}${Math.floor(Math.random() * 1000)}`
+
+const initialChats = loadChats()
+
 export const useStore = create((set, get) => ({
   nodes: initialNodes,
   edges: initialEdges,
   presets: initialPresets,
   settingsOpen: false,
+
+  // ── 界面状态 ──
+  chats: initialChats,
+  activeView: initialChats.length ? { type: 'chat', id: initialChats[0].id } : { type: 'chat', id: null },
+  sidebarCollapsed: false,
+  searchQuery: '',
+
+  setActiveView: (view) => set({ activeView: view }),
+  toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
+  setSearchQuery: (q) => set({ searchQuery: q }),
+
+  // ── 对话 CRUD ──
+  createChat: () => {
+    const chat = { id: newChatId(), title: '新对话', messages: [], createdAt: Date.now() }
+    const chats = [chat, ...get().chats]
+    persistChats(chats)
+    set({ chats, activeView: { type: 'chat', id: chat.id } })
+    return chat.id
+  },
+  removeChat: (id) => {
+    const chats = get().chats.filter((c) => c.id !== id)
+    persistChats(chats)
+    const av = get().activeView
+    set({
+      chats,
+      activeView:
+        av.type === 'chat' && av.id === id
+          ? { type: 'chat', id: chats[0]?.id || null }
+          : av,
+    })
+  },
+  renameChat: (id, title) => {
+    const chats = get().chats.map((c) => (c.id === id ? { ...c, title } : c))
+    persistChats(chats)
+    set({ chats })
+  },
+  appendMessage: (chatId, message) => {
+    const chats = get().chats.map((c) =>
+      c.id === chatId ? { ...c, messages: [...c.messages, message] } : c,
+    )
+    persistChats(chats)
+    set({ chats })
+  },
+  updateMessage: (chatId, msgId, patch) => {
+    const chats = get().chats.map((c) =>
+      c.id === chatId
+        ? { ...c, messages: c.messages.map((m) => (m.id === msgId ? { ...m, ...patch } : m)) }
+        : c,
+    )
+    persistChats(chats)
+    set({ chats })
+  },
 
   onNodesChange: (changes) => set({ nodes: applyNodeChanges(changes, get().nodes) }),
   onEdgesChange: (changes) => set({ edges: applyEdgeChanges(changes, get().edges) }),

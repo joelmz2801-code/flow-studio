@@ -169,7 +169,7 @@ export function ImageGenNode({ id, data }) {
   const up = useUpdate(id)
   return (
     <Shell id={id} accent="red" icon="✨" title="图片生成" subtitle="文生图 / 多参考图生图" status={data.status} error={data.error}>
-      <InHandle id="config" label="API 配置" top={52} />
+      <InHandle id="config" label="API 配置（可选）" top={52} />
       <InHandle id="refs" label="参考图集" top={80} />
       <Field label="提示词 Prompt">
         <textarea className="nodrag" rows={4} value={data.prompt || ''} placeholder="描述你想生成的画面…" onChange={(e) => up({ prompt: e.target.value })} />
@@ -193,7 +193,7 @@ export function VideoGenNode({ id, data }) {
   const up = useUpdate(id)
   return (
     <Shell id={id} accent="yellow" icon="🎬" title="视频处理" subtitle="文生视频 / 图生视频" status={data.status} error={data.error}>
-      <InHandle id="config" label="API 配置" top={52} />
+      <InHandle id="config" label="API 配置（可选）" top={52} />
       <InHandle id="image" label="首帧参考图（可选）" top={80} />
       <Field label="提示词 Prompt">
         <textarea className="nodrag" rows={3} value={data.prompt || ''} placeholder="描述镜头与画面动态…" onChange={(e) => up({ prompt: e.target.value })} />
