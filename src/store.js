@@ -47,20 +47,6 @@ export const PRESET_FIELDS = ['baseUrl', 'apiKey', 'imageModel', 'videoModel', '
 
 const DEFAULT_PRESETS = [
   {
-    id: 'p-openai',
-    name: 'OpenAI 官方',
-    baseUrl: 'https://api.openai.com',
-    apiKey: '',
-    imageModel: 'gpt-image-1',
-    videoModel: 'sora-2',
-    imagePath: '/v1/images/generations',
-    videoPath: '/v1/videos/generations',
-    models: [
-      { id: 'gpt-image-1', visible: true, isDefault: true, type: 'image' },
-      { id: 'sora-2', visible: true, isDefault: true, type: 'video' }
-    ]
-  },
-  {
     id: 'p-xinyuan',
     name: '鑫源 AI (xinyuan)',
     baseUrl: 'https://xinyuanai666.com',
