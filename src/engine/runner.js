@@ -1,4 +1,4 @@
-import { getBuiltinConfig } from './builtin.js'
+import { getBuiltinConfig, resolveModel, getKeyIndex, setKeyIndex, isQuotaError, DEFAULT_MODEL } from './builtin.js'
 // ─────────────────────────────────────────────
 // 工作流执行引擎：按连线拓扑递归求值，带缓存
 // ─────────────────────────────────────────────
@@ -221,23 +221,41 @@ export async function downloadMedia(media, filename) {
 }
 
 // ─────────────────────────────────────────────
-// 对话式生图：供聊天页面调用（使用内置通道）
+// 对话式生图：供聊天页面调用（内置多通道，额度不足自动切换 Key）
 // ─────────────────────────────────────────────
 export async function generateImage({ prompt, size = '1024x1024', refs = [], model }, signal) {
-  const config = getBuiltinConfig()
-  const body = { model: model || config.imageModel, prompt, n: 1, size }
+  const ch = resolveModel(model || DEFAULT_MODEL)
+  const body = { model: ch.apiModel, prompt, n: 1, size }
   if (refs?.length) body.image = refs
-  const json = await apiPost(joinUrl(config.baseUrl, config.imagePath), config.apiKey, body, signal)
-  const img = extractImage(json)
-  if (!img) throw new Error('响应中未找到图片: ' + JSON.stringify(json).slice(0, 200))
-  return img
+
+  const total = ch.keys.length
+  const start = getKeyIndex(ch.providerId, total)
+  let lastErr
+  for (let i = 0; i < total; i++) {
+    const idx = (start + i) % total
+    try {
+      const json = await apiPost(joinUrl(ch.baseUrl, ch.imagePath), ch.keys[idx], body, signal)
+      const img = extractImage(json)
+      if (!img) throw new Error('响应中未找到图片: ' + JSON.stringify(json).slice(0, 200))
+      if (idx !== start) setKeyIndex(ch.providerId, idx) // 记住可用通道
+      return img
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err
+      lastErr = err
+      // 额度类错误 → 静默切换下一个 Key；其他错误直接抛出
+      if (isQuotaError(err) && i < total - 1) continue
+      if (!isQuotaError(err)) throw err
+    }
+  }
+  throw lastErr
 }
 
-// 拉取可用模型列表（内置通道）
+// 拉取可用模型列表（xy 通道，用于自定义模型搜索）
 export async function listModels() {
-  const config = getBuiltinConfig()
-  const res = await fetch(joinUrl(config.baseUrl, '/v1/models'), {
-    headers: { Authorization: `Bearer ${config.apiKey}` },
+  const ch = resolveModel(DEFAULT_MODEL)
+  const idx = getKeyIndex(ch.providerId, ch.keys.length)
+  const res = await fetch(joinUrl(ch.baseUrl, '/v1/models'), {
+    headers: { Authorization: `Bearer ${ch.keys[idx]}` },
   })
   if (!res.ok) throw new Error('HTTP ' + res.status)
   const json = await res.json()

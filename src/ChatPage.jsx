@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from './store.js'
 import { generateImage, downloadMedia, listModels } from './engine/runner.js'
+import { BUILTIN_MODELS, DEFAULT_MODEL } from './engine/builtin.js'
 
 // ── 画幅比例（附使用场景说明）──────────────────
 const RATIOS = [
@@ -82,7 +83,7 @@ export default function ChatPage({ chatId }) {
   const ratioPop = usePopover()
   const stylePop = usePopover()
   const modelPop = usePopover()
-  const [model, setModel] = useState(() => localStorage.getItem('jfs-model') || 'gpt-image-1')
+  const [model, setModel] = useState(() => localStorage.getItem('jfs-model') || DEFAULT_MODEL)
   const [models, setModels] = useState(null)      // null=未加载 []=失败或为空
   const [modelQuery, setModelQuery] = useState('')
 
@@ -282,7 +283,7 @@ export default function ChatPage({ chatId }) {
             <div className="pop-anchor" ref={modelPop.ref}>
               <button className={`pill-btn ${modelPop.open ? 'active' : ''}`} onClick={() => modelPop.setOpen(!modelPop.open)} title="选择生图模型">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg>
-                <span className="pill-model">{model}</span>
+                <span className="pill-model">{BUILTIN_MODELS.find((b) => b.id === model)?.label || model}</span>
               </button>
               {modelPop.open && (
                 <div className="popover popover-models">
@@ -296,24 +297,42 @@ export default function ChatPage({ chatId }) {
                     onKeyDown={(e) => e.key === 'Enter' && modelQuery.trim() && pickModel(modelQuery.trim())}
                   />
                   <div className="model-list">
-                    {models === null && <div className="model-hint">正在获取模型列表…</div>}
-                    {models !== null && (() => {
+                    {(() => {
                       const q = modelQuery.trim().toLowerCase()
-                      const list = (models || []).filter((m) => !q || m.toLowerCase().includes(q))
-                      if (!list.length) {
-                        return (
-                          <div className="model-hint">
-                            {models.length === 0 ? '未能获取列表' : '没有匹配的模型'}
-                            {q ? <>，按 Enter 使用 “{modelQuery.trim()}”</> : ''}
-                          </div>
-                        )
-                      }
-                      return list.map((m) => (
-                        <button key={m} className={`pop-item model-item ${model === m ? 'selected' : ''}`} onClick={() => pickModel(m)}>
-                          <span className="pop-item-main"><b>{m}</b></span>
-                          {model === m && <span className="pop-check">✓</span>}
-                        </button>
-                      ))
+                      const builtins = BUILTIN_MODELS.filter(
+                        (b) => !q || b.label.toLowerCase().includes(q) || b.id.toLowerCase().includes(q)
+                      )
+                      const builtinIds = new Set(BUILTIN_MODELS.map((b) => b.id))
+                      const extra = (models || []).filter(
+                        (m) => !builtinIds.has(m) && (!q || m.toLowerCase().includes(q))
+                      )
+                      return (
+                        <>
+                          {builtins.length > 0 && <div className="model-group">内置模型</div>}
+                          {builtins.map((b) => (
+                            <button key={b.id} className={`pop-item model-item ${model === b.id ? 'selected' : ''}`} onClick={() => pickModel(b.id)}>
+                              <span className="pop-item-main">
+                                <b>{b.label}</b>
+                                <small>{b.desc}</small>
+                              </span>
+                              {model === b.id && <span className="pop-check">✓</span>}
+                            </button>
+                          ))}
+                          {models === null && <div className="model-hint">正在获取更多模型…</div>}
+                          {extra.length > 0 && <div className="model-group">更多模型</div>}
+                          {extra.map((m) => (
+                            <button key={m} className={`pop-item model-item ${model === m ? 'selected' : ''}`} onClick={() => pickModel(m)}>
+                              <span className="pop-item-main"><b>{m}</b></span>
+                              {model === m && <span className="pop-check">✓</span>}
+                            </button>
+                          ))}
+                          {models !== null && !builtins.length && !extra.length && (
+                            <div className="model-hint">
+                              没有匹配的模型{q ? <>，按 Enter 使用 “{modelQuery.trim()}”</> : ''}
+                            </div>
+                          )}
+                        </>
+                      )
                     })()}
                   </div>
                   {modelQuery.trim() && !(models || []).includes(modelQuery.trim()) && (
