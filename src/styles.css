@@ -61,6 +61,25 @@ body {
 .dot-b { background: #4285f4; } .dot-r { background: #ea4335; }
 .dot-y { background: #fbbc05; } .dot-g { background: #34a853; }
 
+/* ── ts logo ── */
+.ts-logo { display: inline-flex; align-items: center; }
+.ts-logo-mark { display: block; flex-shrink: 0; }
+.ts-logo-text-wrap { display: inline-flex; align-items: baseline; gap: 4px; }
+.ts-logo-text {
+  font-family: 'Brush Script MT', 'Pacifico', 'Apple Chancery', 'Comic Sans MS', cursive;
+  font-weight: 700;
+  background: linear-gradient(135deg, #1a73e8 0%, #7c4dff 50%, #ea4335 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  letter-spacing: 0.5px;
+}
+.ts-logo-heart { display: inline-flex; align-items: center; line-height: 1; }
+.ts-logo-title {
+  font-family: 'Brush Script MT', 'Pacifico', 'Apple Chancery', 'Comic Sans MS', cursive;
+  font-weight: 700;
+  background: linear-gradient(135deg, #1a73e8 0%, #7c4dff 50%, #ea4335 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
 .palette-title {
   font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px;
   color: var(--muted); margin: 0 4px 10px; font-weight: 500;

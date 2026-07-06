@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { supabase, isAuthEnabled } from './lib/supabase.js'
+import { Logo } from './components/Logo.jsx'
 
 function translateAuthError(msg) {
   const lower = msg.toLowerCase()
@@ -66,9 +67,8 @@ export default function AuthPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
-          <span className="dot dot-b" /><span className="dot dot-r" /><span className="dot dot-y" /><span className="dot dot-g" />
+          <Logo size={64} withText textSize={32} />
         </div>
-        <h1 className="auth-title">Joel Flow Studio</h1>
         <p className="auth-subtitle">AI 创作工作台 · 输入邮箱和密码进入</p>
 
         <form onSubmit={handleSubmit} className="auth-form">

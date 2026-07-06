@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from './store.js'
 import { generateImage, generateVideo, generateChat, downloadMedia, listModels } from './engine/runner.js'
+import { Logo } from './components/Logo.jsx'
 
 import { BUILTIN_MODELS, DEFAULT_MODEL } from './engine/builtin.js'
 
@@ -321,7 +322,7 @@ export default function ChatPage({ chatId }) {
         {messages.length === 0 ? (
           <div className="chat-hero">
             <div className="hero-logo">
-              <span className="dot dot-b" /><span className="dot dot-r" /><span className="dot dot-y" /><span className="dot dot-g" />
+              <Logo size={56} withText textSize={28} />
             </div>
             <h2>今天想创作点什么？</h2>
             <p>描述画面，挑一个画幅和风格，剩下的交给我</p>
@@ -581,7 +582,7 @@ function Message({ m }) {
   return (
     <div className="msg msg-ai">
       <div className="ai-avatar">
-        <span className="dot dot-b" /><span className="dot dot-r" /><span className="dot dot-y" /><span className="dot dot-g" />
+        <Logo size={28} />
       </div>
       <div className="bubble bubble-ai">
         {m.status === 'loading' && m.mediaType === 'chat' && (

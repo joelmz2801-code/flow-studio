@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useStore, forceFlushPendingSaves } from './store.js'
 import { useAuth } from './useAuth.js'
+import { Logo } from './components/Logo.jsx'
 
 function useIsMobile() {
   const [m, setM] = useState(() => window.matchMedia('(max-width: 768px)').matches)
@@ -73,11 +74,9 @@ export default function Sidebar() {
   return (
     <aside className={`sidebar ${isMobile && mobileNavOpen ? 'mobile-open' : ''}`}>
       <div className="brand">
-        <div className="brand-logo">
-          <span className="dot dot-b" /><span className="dot dot-r" /><span className="dot dot-y" /><span className="dot dot-g" />
-        </div>
+        <Logo size={32} />
         <div className="brand-text">
-          <h1>Joel Flow Studio</h1>
+          <h1>ts studio</h1>
           <p>AI 创作工作台</p>
         </div>
         <button className="icon-btn sb-toggle" onClick={() => (isMobile ? closeNav() : toggleSidebar())} title="收起侧边栏">
