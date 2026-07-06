@@ -5,6 +5,7 @@ import { BUILTIN_MODELS, DEFAULT_MODEL } from './engine/builtin.js'
 
 // ── 画幅比例（附使用场景说明）──────────────────
 const RATIOS = [
+  { id: 'auto', w: 1, h: 1, name: 'Auto', label: '自动', desc: '由模型智能决定画幅' },
   { id: '1:1', w: 1, h: 1, name: '1:1', label: '方形', desc: '头像 · 社交贴图' },
   { id: '16:9', w: 16, h: 9, name: '16:9', label: '宽屏', desc: '电脑壁纸 · 视频封面' },
   { id: '9:16', w: 9, h: 16, name: '9:16', label: '竖屏', desc: '手机壁纸 · 短视频' },
@@ -126,7 +127,7 @@ export default function ChatPage({ chatId }) {
 
     const userMsg = {
       id: `m${Date.now()}u`, role: 'user', text, refs, time: Date.now(),
-      meta: [ratio.name !== '1:1' ? `画幅 ${ratio.name}` : '', style.id !== 'none' ? style.name : '', model].filter(Boolean),
+      meta: [ratio.id !== 'auto' && ratio.name !== '1:1' ? `画幅 ${ratio.name}` : '', style.id !== 'none' ? style.name : '', model].filter(Boolean),
     }
     appendMessage(id, userMsg)
 
@@ -138,7 +139,7 @@ export default function ChatPage({ chatId }) {
     const aiId = `m${Date.now()}a`
     appendMessage(id, {
       id: aiId, role: 'assistant', status: 'loading', text: '', images: [],
-      ratio: { w: ratio.w, h: ratio.h }, time: Date.now(),
+      ratio: ratio.id === 'auto' ? null : { w: ratio.w, h: ratio.h }, time: Date.now(),
     })
 
     setInput('')
@@ -146,7 +147,7 @@ export default function ChatPage({ chatId }) {
     setBusy(true)
     try {
       const prompt = style.prompt ? `${text}\n\n画面风格：${style.prompt}` : text
-      const img = await generateImage({ prompt, size: sizeForRatio(ratio.w, ratio.h), refs, model })
+      const img = await generateImage({ prompt, size: ratio.id === 'auto' ? undefined : sizeForRatio(ratio.w, ratio.h), refs, model })
       updateMessage(id, aiId, { status: 'done', images: [img], text: '' })
     } catch (err) {
       updateMessage(id, aiId, { status: 'error', text: err.message })
@@ -221,7 +222,7 @@ export default function ChatPage({ chatId }) {
             {/* 画幅比例选择 */}
             <div className="pop-anchor" ref={ratioPop.ref}>
               <button className={`pill-btn ${ratioPop.open ? 'active' : ''}`} onClick={() => ratioPop.setOpen(!ratioPop.open)}>
-                <RatioIcon w={ratio.w} h={ratio.h} />
+                {ratio.id === 'auto' ? <span className="ratio-auto-ic">A</span> : <RatioIcon w={ratio.w} h={ratio.h} />}
                 {ratio.name}
               </button>
               {ratioPop.open && (
@@ -233,7 +234,7 @@ export default function ChatPage({ chatId }) {
                       className={`pop-item ${ratio.id === r.id ? 'selected' : ''}`}
                       onClick={() => { setRatio(r); ratioPop.setOpen(false) }}
                     >
-                      <RatioIcon w={r.w} h={r.h} />
+                      {r.id === 'auto' ? <span className="ratio-auto-ic">A</span> : <RatioIcon w={r.w} h={r.h} />}
                       <span className="pop-item-main">
                         <b>{r.name} <em>{r.label}</em></b>
                         <small>{r.desc}</small>

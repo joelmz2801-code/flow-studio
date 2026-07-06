@@ -914,3 +914,6 @@ textarea { resize: vertical; line-height: 1.5; }
   font-weight: 400;
   margin-top: 1px;
 }
+
+/* Auto 比例图标 */
+.ratio-auto-ic { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border: 1.5px dashed currentColor; border-radius: 4px; font-size: 10px; font-weight: 700; opacity: 0.85; flex: none; }

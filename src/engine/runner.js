@@ -223,9 +223,10 @@ export async function downloadMedia(media, filename) {
 // ─────────────────────────────────────────────
 // 对话式生图：供聊天页面调用（内置多通道，额度不足自动切换 Key）
 // ─────────────────────────────────────────────
-export async function generateImage({ prompt, size = '1024x1024', refs = [], model }, signal) {
+export async function generateImage({ prompt, size, refs = [], model }, signal) {
   const ch = resolveModel(model || DEFAULT_MODEL)
-  const body = { model: ch.apiModel, prompt, n: 1, size }
+  const body = { model: ch.apiModel, prompt, n: 1 }
+  if (size) body.size = size
   if (refs?.length) body.image = refs
 
   const total = ch.keys.length
