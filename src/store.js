@@ -45,22 +45,7 @@ function presetKey() {
 // ── API 预设 ─────────────────────────────────────
 export const PRESET_FIELDS = ['baseUrl', 'apiKey', 'imageModel', 'videoModel', 'imagePath', 'videoPath']
 
-const DEFAULT_PRESETS = [
-  {
-    id: 'p-xinyuan',
-    name: '鑫源 AI (xinyuan)',
-    baseUrl: 'https://xinyuanai666.com',
-    apiKey: 'sk-v6n1p9wtyf5CH6ak2XAXIs5eufmLZCaRt1PethrRk7FaL9TF, sk-zH0pAR2SgbVwCY1HkGWDVtuK2tmY8Py8c59vnQDjbHrsaUz, sk-auG6YSDrkrxBGHXNjWCqy7ZMB4O9jkMbohtFKaw7EiewrG9i, sk-lwjbOTEP4UyErP5S15yMACFGieyEG4bWHRi2uez0yZhASF8I, sk-FNsAP9jhl53w59ac4pcwOWdahxRubRGFrylgyEIZmriaDYT4b, sk-peXqWSvzPlEXlfrZYBj4YLPXdRjzQh4T1YZKRj8ORVmikdQS',
-    imageModel: 'gpt-image-2',
-    videoModel: 'sora-2',
-    imagePath: '/v1/images/generations',
-    videoPath: '/v1/videos/generations',
-    models: [
-      { id: 'gpt-image-2', visible: true, isDefault: true, type: 'image' },
-      { id: 'sora-2', visible: true, isDefault: true, type: 'video' }
-    ]
-  }
-]
+const DEFAULT_PRESETS = []
 
 function loadPresetsFromStorage(key) {
   try {
