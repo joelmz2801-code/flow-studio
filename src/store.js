@@ -163,6 +163,7 @@ export const useStore = create((set, get) => ({
   edges: initialEdges,
   presets: initialPresets,
   settingsOpen: false,
+  settingsTab: 'api',
 
   chats: initialChats,
   activeView: initialChats.length ? { type: 'chat', id: initialChats[0].id } : { type: 'chat', id: null },
@@ -256,6 +257,8 @@ export const useStore = create((set, get) => ({
 
   // ── 设置面板 ──
   setSettingsOpen: (open) => set({ settingsOpen: open }),
+  setSettingsTab: (tab) => set({ settingsTab: tab }),
+  openSettings: (tab) => set({ settingsTab: tab, settingsOpen: true }),
 
   // ── 预设 CRUD ──
   addPreset: (preset) => {

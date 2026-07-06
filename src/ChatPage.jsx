@@ -85,8 +85,6 @@ export default function ChatPage({ chatId }) {
   }, [pendingPrompt])
   const [ratio, setRatio] = useState(RATIOS[0])
   const [style, setStyle] = useState(STYLES[0])
-  const [customW, setCustomW] = useState('')
-  const [customH, setCustomH] = useState('')
   const [refs, setRefs] = useState([])
   const [busy, setBusy] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -98,7 +96,16 @@ export default function ChatPage({ chatId }) {
   const ratioPop = usePopover()
   const stylePop = usePopover()
   const modelPop = usePopover()
-  const [model, setModel] = useState(() => localStorage.getItem('jfs-model') || DEFAULT_MODEL)
+  // 默认模型策略：新对话默认使用文本对话模型（Command AI）；不恢复生图/视频模型作为默认
+  const [model, setModel] = useState(() => {
+    const saved = localStorage.getItem('jfs-model')
+    // 仅恢复文本对话模型，生图/视频模型不作为初始默认
+    if (saved) {
+      const m = BUILTIN_MODELS.find((b) => b.id === saved)
+      if (m?.type === 'chat') return saved
+    }
+    return DEFAULT_MODEL
+  })
   const [modelQuery, setModelQuery] = useState('')
 
   const presets = useStore((s) => s.presets)
@@ -131,8 +138,8 @@ export default function ChatPage({ chatId }) {
 
   useEffect(() => {
     if (allVisibleModels.length > 0 && !allVisibleModels.some(m => m.id === model)) {
-      const defaultModel = allVisibleModels.find(m => m.isDefault)?.id || allVisibleModels[0].id
-      setModel(defaultModel)
+      // 当前模型不可用 → 回退到默认文本模型，而非任意生图模型
+      setModel(DEFAULT_MODEL)
     }
   }, [allVisibleModels, model])
 
@@ -214,15 +221,6 @@ export default function ChatPage({ chatId }) {
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [])
-
-  const applyCustomRatio = () => {
-    const w = parseInt(customW, 10)
-    const h = parseInt(customH, 10)
-    if (!w || !h || w <= 0 || h <= 0) return
-    const g = ((a, b) => (b ? g(b, a % b) : a))(w, h)
-    setRatio({ id: 'custom', w: w / g, h: h / g, name: `${w}:${h}`, label: '自定义', desc: '' })
-    ratioPop.setOpen(false)
-  }
 
   const activeModelObj = allVisibleModels.find(m => m.id === model)
   const isVideo = activeModelObj?.type === 'video'
