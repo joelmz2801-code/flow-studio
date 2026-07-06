@@ -33,7 +33,8 @@ function extractImage(json) {
 function extractVideo(json) {
   const d = json?.data?.[0]
   return (
-    d?.url || d?.video_url || json?.video_url || json?.url ||
+    d?.url || d?.video_url || d?.remixed_from_video_id ||
+    json?.video_url || json?.url || json?.remixed_from_video_id ||
     json?.output?.video_url || json?.output?.[0] || null
   )
 }
@@ -149,12 +150,16 @@ export async function runGraph(targetIds, { nodes, edges, updateData }) {
           const url = joinUrl(config.baseUrl, config.videoPath)
           let json = await apiPost(url, config.apiKey, body)
           let video = extractVideo(json)
-          // 异步任务：轮询直到完成
+          const videoId = json?.video_id
           const taskId = json?.id || json?.task_id
           let tries = 0
-          while (!video && taskId && tries < 60) {
+          while (!video && (videoId || taskId) && tries < 60) {
             await sleep(5000)
-            json = await apiGet(`${url}/${taskId}`, config.apiKey)
+            if (videoId) {
+              json = await apiGet(`${joinUrl(config.baseUrl, '/agnesapi')}?video_id=${videoId}`, config.apiKey)
+            } else {
+              json = await apiGet(`${url}/${taskId}`, config.apiKey)
+            }
             const status = (json?.status || '').toLowerCase()
             if (['failed', 'error', 'cancelled'].includes(status)) {
               throw new Error('视频任务失败: ' + JSON.stringify(json).slice(0, 200))
@@ -257,7 +262,7 @@ export function resolveModelWithPresets(modelId, presets) {
             keys: p.apiKey ? p.apiKey.split(',').map(k => k.trim()).filter(Boolean) : [],
             apiModel: found.id,
             imagePath: p.imagePath || '/v1/images/generations',
-            videoPath: p.videoPath || '/v1/videos/generations',
+            videoPath: p.videoPath || '/v1/videos',
             type: found.type || 'image'
           }
         }
@@ -267,7 +272,7 @@ export function resolveModelWithPresets(modelId, presets) {
   const builtin = resolveModel(modelId)
   return {
     ...builtin,
-    videoPath: '/v1/videos/generations',
+    videoPath: '/v1/videos',
     type: 'image'
   }
 }
@@ -314,21 +319,27 @@ export async function generateVideo({ prompt, model, refImage }, signal) {
   if (total === 0) {
     throw new Error('API Key 不能为空，请在设置中配置。')
   }
-  
-  const url = joinUrl(ch.baseUrl, ch.videoPath || '/v1/videos/generations')
-  // We try using the keys
+
+  const url = joinUrl(ch.baseUrl, ch.videoPath || '/v1/videos')
   let lastErr
   for (let idx = 0; idx < total; idx++) {
     try {
       const apiKey = ch.keys[idx]
       let json = await apiPost(url, apiKey, body, signal)
       let video = extractVideo(json)
+      const videoId = json?.video_id
       const taskId = json?.id || json?.task_id
       let tries = 0
-      while (!video && taskId && tries < 60) {
+      while (!video && (videoId || taskId) && tries < 60) {
         if (signal?.aborted) throw new Error('aborted')
         await sleep(5000)
-        json = await apiGet(`${url}/${taskId}`, apiKey, signal)
+        // 推荐方式：用 video_id 查询 /agnesapi?video_id=
+        if (videoId) {
+          json = await apiGet(`${joinUrl(ch.baseUrl, '/agnesapi')}?video_id=${videoId}`, apiKey, signal)
+        } else {
+          // 兼容旧版：用 task_id 查询 /v1/videos/<task_id>
+          json = await apiGet(`${url}/${taskId}`, apiKey, signal)
+        }
         const status = (json?.status || '').toLowerCase()
         if (['failed', 'error', 'cancelled'].includes(status)) {
           throw new Error('视频任务失败: ' + JSON.stringify(json).slice(0, 200))

@@ -163,15 +163,44 @@ export default function ChatPage({ chatId }) {
   const isVideo = activeModelObj?.type === 'video'
   const isChat = activeModelObj?.type === 'chat'
 
+  // 生图意图检测：当用户当前选的是文本模型时，检测是否想生图
+  const detectImageIntent = (text) => {
+    const t = text.toLowerCase()
+    const keywords = [
+      '画', '画一张', '画一个', '画幅', '帮我画', '生成图', '生成一张图',
+      '生成图片', '生图', '出图', '出一张', '来一张', '来张',
+      '给我画', '帮我生成', '创建图片', '做一张图', '做张图',
+      'draw', 'generate image', 'create image', 'make image', 'render',
+    ]
+    // 命中关键词
+    if (keywords.some(k => t.includes(k))) return true
+    // 命中"画"字开头（如"画只猫"）
+    if (/^画[一 两 几 些 个 张 幅 次]/.test(text)) return true
+    return false
+  }
+
   const send = async (textOverride) => {
     const text = (textOverride ?? input).trim()
     if (!text || busy) return
     let id = chatId
     if (!chat) id = createChat()
 
+    // 自动检测生图意图：当前是文本模型但用户想生图 → 切换到生图模型
+    let activeModel = model
+    let activeIsVideo = isVideo
+    let activeIsChat = isChat
+    if (isChat && detectImageIntent(text)) {
+      const imageModel = allVisibleModels.find(m => m.type === 'image')
+      if (imageModel) {
+        activeModel = imageModel.id
+        activeIsVideo = false
+        activeIsChat = false
+      }
+    }
+
     const userMsg = {
       id: `m${Date.now()}u`, role: 'user', text, refs, time: Date.now(),
-      meta: [ratio.id !== 'auto' && ratio.name !== '1:1' ? `画幅 ${ratio.name}` : '', style.id !== 'none' ? style.name : '', model].filter(Boolean),
+      meta: [ratio.id !== 'auto' && ratio.name !== '1:1' ? `画幅 ${ratio.name}` : '', style.id !== 'none' ? style.name : '', activeModel].filter(Boolean),
     }
     appendMessage(id, userMsg)
 
@@ -183,7 +212,7 @@ export default function ChatPage({ chatId }) {
     const aiId = `m${Date.now()}a`
     appendMessage(id, {
       id: aiId, role: 'assistant', status: 'loading', text: '', images: [], videos: [],
-      mediaType: isVideo ? 'video' : (isChat ? 'chat' : 'image'),
+      mediaType: activeIsVideo ? 'video' : (activeIsChat ? 'chat' : 'image'),
       ratio: ratio.id === 'auto' ? null : { w: ratio.w, h: ratio.h }, time: Date.now(),
     })
 
@@ -192,15 +221,15 @@ export default function ChatPage({ chatId }) {
     setBusy(true)
     try {
       const prompt = style.prompt ? `${text}\n\n画面风格：${style.prompt}` : text
-      if (isVideo) {
-        const video = await generateVideo({ prompt, model, refImage: refs[0] })
+      if (activeIsVideo) {
+        const video = await generateVideo({ prompt, model: activeModel, refImage: refs[0] })
         updateMessage(id, aiId, { status: 'done', videos: [video], text: '' })
-      } else if (isChat) {
+      } else if (activeIsChat) {
         const chatContext = [{ role: 'user', content: prompt }]
-        const responseText = await generateChat({ messages: chatContext, model })
+        const responseText = await generateChat({ messages: chatContext, model: activeModel })
         updateMessage(id, aiId, { status: 'done', text: responseText })
       } else {
-        const img = await generateImage({ prompt, size: ratio.id === 'auto' ? undefined : sizeForRatio(ratio.w, ratio.h), refs, model })
+        const img = await generateImage({ prompt, size: ratio.id === 'auto' ? undefined : sizeForRatio(ratio.w, ratio.h), refs, model: activeModel })
         updateMessage(id, aiId, { status: 'done', images: [img], text: '' })
       }
     } catch (err) {

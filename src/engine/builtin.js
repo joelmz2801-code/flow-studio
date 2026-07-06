@@ -31,11 +31,11 @@ export const BUILTIN_MODELS = [
   { id: 'image-2', label: 'Image 2', provider: 'xy', apiModel: 'gpt-image-2', desc: '多通道保障 · 高质量', type: 'image' },
   { id: 'agnes-image-2.1-flash', label: 'Agnes 2.1 Flash', provider: 'ag', apiModel: 'agnes-image-2.1-flash', desc: 'Agnes 通道 · 快速', type: 'image' },
   { id: 'agnes-image-2.0-flash', label: 'Agnes 2.0 Flash', provider: 'ag', apiModel: 'agnes-image-2.0-flash', desc: 'Agnes 通道 · 经典', type: 'image' },
-  { id: 'agnes-video-2.0', label: 'Agnes 视频文本', provider: 'ag', apiModel: 'agnes-video-2.0', desc: 'Agnes 官方视频模型', type: 'video' },
+  { id: 'agnes-video-2.0', label: 'Agnes 视频文本', provider: 'ag', apiModel: 'agnes-video-v2.0', desc: 'Agnes 官方视频模型', type: 'video' },
   { id: 'agnes-2.0-flash', label: 'Agnes 2.0 Flash (文本)', provider: 'ag', apiModel: 'agnes-2.0-flash', desc: 'Agnes 官方文本模型', type: 'chat' }
 ]
 
-export const DEFAULT_MODEL = 'agnes-image-2.1-flash'
+export const DEFAULT_MODEL = 'agnes-2.0-flash'
 
 
 // 解析模型 → 通道配置；未知模型走 xy 通道并原样透传模型名
@@ -49,7 +49,7 @@ export function resolveModel(modelId) {
     keys: p.k.map(_d),
     apiModel: m ? m.apiModel : modelId,
     imagePath: '/v1/images/generations',
-    videoPath: '/v1/videos/generations',
+    videoPath: '/v1/videos',
     chatPath: '/v1/chat/completions',
     type: m ? m.type : 'image'
   }
