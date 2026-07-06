@@ -90,6 +90,7 @@ export default function ChatPage({ chatId }) {
   const [refs, setRefs] = useState([])
   const [busy, setBusy] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const dragCounter = useRef(0)
   const abortRef = useRef(null)
   const fileRef = useRef()
   const scrollRef = useRef()
@@ -170,9 +171,10 @@ export default function ChatPage({ chatId }) {
     }
   }
 
-  // 拖拽图片
+  // 拖拽图片 — 用计数器 + window 级兜底，防止"松开以添加参考图"卡在屏幕中间
   const handleDrop = (e) => {
     e.preventDefault()
+    dragCounter.current = 0
     setDragOver(false)
     const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'))
     if (files.length > 0) attach(files)
@@ -180,12 +182,38 @@ export default function ChatPage({ chatId }) {
 
   const handleDragOver = (e) => {
     e.preventDefault()
-    setDragOver(true)
+  }
+
+  const handleDragEnter = (e) => {
+    e.preventDefault()
+    dragCounter.current++
+    if (dragCounter.current === 1) setDragOver(true)
   }
 
   const handleDragLeave = (e) => {
-    if (e.currentTarget === e.target) setDragOver(false)
+    e.preventDefault()
+    dragCounter.current = Math.max(0, dragCounter.current - 1)
+    if (dragCounter.current === 0) setDragOver(false)
   }
+
+  // 兜底：拖出窗口、ESC 取消、未拖入就释放等情况，强制关闭 overlay
+  useEffect(() => {
+    const reset = () => {
+      dragCounter.current = 0
+      setDragOver(false)
+    }
+    const onWindowDragEnd = () => reset()
+    const onWindowDrop = () => reset()
+    const onKeyDown = (e) => { if (e.key === 'Escape') reset() }
+    window.addEventListener('dragend', onWindowDragEnd)
+    window.addEventListener('drop', onWindowDrop)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('dragend', onWindowDragEnd)
+      window.removeEventListener('drop', onWindowDrop)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [])
 
   const applyCustomRatio = () => {
     const w = parseInt(customW, 10)
@@ -200,20 +228,20 @@ export default function ChatPage({ chatId }) {
   const isVideo = activeModelObj?.type === 'video'
   const isChat = activeModelObj?.type === 'chat'
 
-  // 生图意图检测：当用户当前选的是文本模型时，检测是否想生图
+  // 生图意图检测：仅当用户**明确**要求生图时才转接（避免聊天中误触"画""draw"等普通用词）
   const detectImageIntent = (text) => {
-    const t = text.toLowerCase()
-    const keywords = [
-      '画', '画一张', '画一个', '画幅', '帮我画', '生成图', '生成一张图',
-      '生成图片', '生图', '出图', '出一张', '来一张', '来张',
-      '给我画', '帮我生成', '创建图片', '做一张图', '做张图',
-      'draw', 'generate image', 'create image', 'make image', 'render',
+    const t = text.trim()
+    const tl = t.toLowerCase()
+    // 明确的生图指令（动词+量词/对象 的组合）
+    const explicitPatterns = [
+      // 中文：必须同时含"画/生成/做/出/创建"等动词 + 图片/图/幅/张 等对象标记
+      /画[一 几 几 些 个 张 幅 只 条 副 块 片]?(张|个|幅|只|条|副|块|片|照片|插画|头像|图片|画|图)/,
+      /(生成|创建|做|出|产出|产出|给我|帮我|来|做张|来张|来一个|做一个|出一张)(一?[张个幅只条副块片])?(图|图片|照片|插画|头像|画面|画)/,
+      /(生成图|生图|出图|做图|做张图|出一张图|生成图片|生成一张图|帮我画|给我画|帮我生成|创建图片)/,
+      // 英文
+      /\b(draw|generate|create|make|render|produce)\b.*\b(image|picture|photo|illustration|avatar|art|drawing|painting)\b/,
     ]
-    // 命中关键词
-    if (keywords.some(k => t.includes(k))) return true
-    // 命中"画"字开头（如"画只猫"）
-    if (/^画[一 两 几 些 个 张 幅 次]/.test(text)) return true
-    return false
+    return explicitPatterns.some((re) => re.test(t) || re.test(tl))
   }
 
   const send = async (textOverride) => {
@@ -222,17 +250,14 @@ export default function ChatPage({ chatId }) {
     let id = chatId
     if (!chat) id = createChat()
 
-    // 自动检测生图意图：当前是文本模型但用户想生图 → 切换到生图模型
+    // 自动转接：当前是文本模型且用户**明确**要求生图 → 强制切到 Agnes 2.1 Flash
     let activeModel = model
     let activeIsVideo = isVideo
     let activeIsChat = isChat
     if (isChat && detectImageIntent(text)) {
-      const imageModel = allVisibleModels.find(m => m.type === 'image')
-      if (imageModel) {
-        activeModel = imageModel.id
-        activeIsVideo = false
-        activeIsChat = false
-      }
+      activeModel = 'agnes-image-2.1-flash'
+      activeIsVideo = false
+      activeIsChat = false
     }
 
     const userMsg = {
@@ -307,6 +332,7 @@ export default function ChatPage({ chatId }) {
       className="chat-page"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onPaste={handlePaste}
     >

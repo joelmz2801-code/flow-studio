@@ -24,17 +24,23 @@ const _P = {
       'c2stN1I1NGFObUYybjdEdXVqUU5XS3lwRnZINUQ0MmNpeWsxaFF6dTRxMlIwNU1HbHRm',
     ],
   },
+  co: {
+    // Cohere 通道：Command 系列文本对话模型（OpenAI 兼容接口）
+    u: 'aHR0cHM6Ly9hcGkuY29oZXJlLmFpL2NvbXBhdGliaWxpdHk=',
+    k: ['aDRVQzNUVHR3dVdwSEZSYkVPWk9teU40aGlndlNlQWZVeDVsQndobA=='],
+  },
 }
 
 // 对话框中展示的内置模型
 export const BUILTIN_MODELS = [
+  { id: 'command-a-vision', label: 'Command AI', provider: 'co', apiModel: 'command-a-vision-07-2025', desc: 'Cohere 通道 · 视觉文本对话', type: 'chat', chatPath: '/v1/chat/completions' },
   { id: 'agnes-image-2.1-flash', label: 'Agnes 2.1 Flash', provider: 'ag', apiModel: 'agnes-image-2.1-flash', desc: 'Agnes 通道 · 快速', type: 'image' },
   { id: 'agnes-image-2.0-flash', label: 'Agnes 2.0 Flash', provider: 'ag', apiModel: 'agnes-image-2.0-flash', desc: 'Agnes 通道 · 经典', type: 'image' },
   { id: 'agnes-video-2.0', label: 'Agnes 视频文本', provider: 'ag', apiModel: 'agnes-video-v2.0', desc: 'Agnes 官方视频模型', type: 'video' },
   { id: 'agnes-2.0-flash', label: 'Agnes 2.0 Flash (文本)', provider: 'ag', apiModel: 'agnes-2.0-flash', desc: 'Agnes 官方文本模型', type: 'chat' }
 ]
 
-export const DEFAULT_MODEL = 'agnes-2.0-flash'
+export const DEFAULT_MODEL = 'command-a-vision'
 
 
 // 解析模型 → 通道配置；未知模型走 xy 通道并原样透传模型名
@@ -49,7 +55,7 @@ export function resolveModel(modelId) {
     apiModel: m ? m.apiModel : modelId,
     imagePath: '/v1/images/generations',
     videoPath: '/v1/videos',
-    chatPath: '/v1/chat/completions',
+    chatPath: m?.chatPath || '/v1/chat/completions',
     type: m ? m.type : 'image'
   }
 }
