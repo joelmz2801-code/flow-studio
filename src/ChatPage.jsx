@@ -421,14 +421,6 @@ export default function ChatPage({ chatId }) {
                       {ratio.id === r.id && <span className="pop-check">✓</span>}
                     </button>
                   ))}
-                  <div className="pop-divider" />
-                  <div className="pop-custom">
-                    <span>自定义</span>
-                    <input type="number" min="1" placeholder="宽" value={customW} onChange={(e) => setCustomW(e.target.value)} />
-                    <i>:</i>
-                    <input type="number" min="1" placeholder="高" value={customH} onChange={(e) => setCustomH(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && applyCustomRatio()} />
-                    <button onClick={applyCustomRatio} disabled={!parseInt(customW, 10) || !parseInt(customH, 10)}>应用</button>
-                  </div>
                 </div>
               )}
             </div>
