@@ -76,7 +76,6 @@ export default function Sidebar() {
       <div className="brand">
         <Logo size={32} />
         <div className="brand-text">
-          <h1>ts studio</h1>
           <p>AI 创作工作台</p>
         </div>
         <button className="icon-btn sb-toggle" onClick={() => (isMobile ? closeNav() : toggleSidebar())} title="收起侧边栏">
