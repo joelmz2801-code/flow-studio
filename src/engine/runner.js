@@ -68,7 +68,18 @@ async function apiGet(url, apiKey, signal) {
   return res.json()
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const sleep = (ms, signal) => new Promise((resolve, reject) => {
+  if (signal?.aborted) return reject(new Error('aborted'))
+  const timer = setTimeout(() => {
+    signal?.removeEventListener('abort', onAbort)
+    resolve()
+  }, ms)
+  const onAbort = () => {
+    clearTimeout(timer)
+    reject(new Error('aborted'))
+  }
+  signal?.addEventListener('abort', onAbort, { once: true })
+})
 
 // ─────────────────────────────────────────────
 
@@ -331,16 +342,19 @@ export async function generateVideo({ prompt, model, refImage }, signal) {
   let lastErr
   for (let i = 0; i < total; i++) {
     const idx = (start + i) % total
+    if (signal?.aborted) throw new Error('aborted')
     try {
       const apiKey = ch.keys[idx]
       let json = await apiPost(url, apiKey, body, signal)
+      if (signal?.aborted) throw new Error('aborted')
       let video = extractVideo(json)
       const videoId = json?.video_id
       const taskId = json?.id || json?.task_id
       let tries = 0
       while (!video && (videoId || taskId) && tries < 60) {
         if (signal?.aborted) throw new Error('aborted')
-        await sleep(5000)
+        await sleep(5000, signal)
+        if (signal?.aborted) throw new Error('aborted')
         // 推荐方式：用 video_id 查询 /agnesapi?video_id=
         if (videoId) {
           json = await apiGet(`${joinUrl(ch.baseUrl, '/agnesapi')}?video_id=${videoId}`, apiKey, signal)
@@ -348,6 +362,7 @@ export async function generateVideo({ prompt, model, refImage }, signal) {
           // 兼容旧版：用 task_id 查询 /v1/videos/<task_id>
           json = await apiGet(`${url}/${taskId}`, apiKey, signal)
         }
+        if (signal?.aborted) throw new Error('aborted')
         const status = (json?.status || '').toLowerCase()
         if (['failed', 'error', 'cancelled'].includes(status)) {
           throw new Error('视频任务失败: ' + JSON.stringify(json).slice(0, 200))
@@ -358,7 +373,7 @@ export async function generateVideo({ prompt, model, refImage }, signal) {
       if (!video) throw new Error('未获取到视频结果')
       return video
     } catch (err) {
-      if (err?.name === 'AbortError') throw err
+      if (err?.name === 'AbortError' || /aborted/i.test(err?.message || '')) throw err
       lastErr = err
       if (isQuotaError(err) && i < total - 1) continue
       throw err
@@ -393,17 +408,19 @@ export async function generateChat({ messages, model }, signal) {
   let lastErr
   const start = randomKeyIndex(total)
   for (let i = 0; i < total; i++) {
+    if (signal?.aborted) throw new Error('aborted')
     const idx = (start + i) % total
     try {
       const apiKey = ch.keys[idx]
       const json = await apiPost(url, apiKey, body, signal)
+      if (signal?.aborted) throw new Error('aborted')
       const content = json?.choices?.[0]?.message?.content
       if (typeof content !== 'string') {
         throw new Error('响应中未找到文本内容')
       }
       return content
     } catch (err) {
-      if (err?.name === 'AbortError') throw err
+      if (err?.name === 'AbortError' || /aborted/i.test(err?.message || '')) throw err
       lastErr = err
       if (isQuotaError(err) && i < total - 1) continue
       throw err
