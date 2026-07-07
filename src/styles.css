@@ -1681,6 +1681,57 @@ textarea { resize: vertical; line-height: 1.5; }
   margin-top: 6px; font-size: 11px; color: var(--muted);
 }
 
+/* ── 可用变量面板 ── */
+.prompt-variables-panel {
+  background: linear-gradient(135deg, #f0f7ff 0%, #fafbff 100%);
+  border: 1px solid #c7dffa;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 4px;
+}
+.prompt-variables-title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: #1e6fb8; font-weight: 500;
+  margin-bottom: 10px;
+}
+.prompt-variables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px;
+}
+.prompt-var-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 9px;
+  background: #fff;
+  border: 1px solid #d3e3f5;
+  border-radius: 7px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--text);
+  transition: background 0.12s, border-color 0.12s, transform 0.08s;
+  text-align: left;
+}
+.prompt-var-chip:hover {
+  background: #e7f1fb;
+  border-color: #5b9be0;
+  transform: translateY(-1px);
+}
+.prompt-var-chip:active { transform: translateY(0); }
+.prompt-var-chip code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: #1a73e8;
+  background: #e7f1fb;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.prompt-var-desc {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 /* ── Account section ── */
 .account-section { margin-bottom: 16px; }
 .account-info-row {

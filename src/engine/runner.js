@@ -1,4 +1,5 @@
 import { getBuiltinConfig, resolveModel, randomKeyIndex, isQuotaError, DEFAULT_MODEL } from './builtin.js'
+import { buildPromptVariables, renderPromptTemplate } from './promptVariables.js'
 import { useStore } from '../store.js'
 
 // ─────────────────────────────────────────────
@@ -411,10 +412,18 @@ export async function generateChat({ messages, model }, signal) {
   const ch = resolveModelWithPresets(model, presets)
   // 注入用户自定义提示词（按顺序拼接为 system message）
   // 不再硬编码任何系统提示词，完全由用户在设置 → 提示词 tab 自行配置
+  // 支持 {{date}} / {{time}} / {{username}} 等变量占位符（类似 Cherry Studio「可变量」）
   const hasSystem = messages?.some((m) => m.role === 'system')
+  const variables = buildPromptVariables({
+    model: ch.apiModel,
+    username: useStore.getState().user?.email?.split('@')[0] || useStore.getState().user?.user_metadata?.name || 'User',
+  })
   const customParts = (useStore.getState().customPrompts || [])
     .filter((p) => p && p.enabled && (p.text || '').trim())
-    .map((p) => (p.name ? `[${p.name}]\n${p.text}` : p.text))
+    .map((p) => {
+      const rendered = renderPromptTemplate(p.text, variables)
+      return p.name ? `[${p.name}]\n${rendered}` : rendered
+    })
   const sysContent = customParts.join('\n\n')
   const finalMessages = (hasSystem || !sysContent)
     ? messages

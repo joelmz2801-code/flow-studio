@@ -2,6 +2,7 @@
 import { useStore, forceFlushPendingSaves } from './store.js'
 import { useAuth } from './useAuth.js'
 import { testApiConnection, fetchModelsList } from './engine/runner.js'
+import { AVAILABLE_VARIABLES } from './engine/promptVariables.js'
 
 const EMPTY = {
   name: '',
@@ -24,6 +25,30 @@ export default function SettingsModal() {
   const { user, signOut, isAuthEnabled } = useAuth()
   const [activeId, setActiveId] = useState(presets[0]?.id || null)
   const [draft, setDraft] = useState(null)
+
+  // 提示词 textarea ref 映射（id -> ref）
+  const promptTextareaRefs = React.useRef({})
+  // 当前聚焦的提示词 id（用于决定变量插入到哪一行）
+  const [focusedPromptId, setFocusedPromptId] = useState(null)
+
+  // 把变量插入到当前聚焦的提示词（聚焦时记录 id；未聚焦则插入到最后一条）
+  const insertVariable = (key) => {
+    const targetId = focusedPromptId || (customPrompts[customPrompts.length - 1]?.id)
+    if (!targetId) return
+    const ta = promptTextareaRefs.current[targetId]
+    if (!ta) return
+    const insertText = `{{${key}}}`
+    const start = ta.selectionStart ?? (ta.value || '').length
+    const end = ta.selectionEnd ?? start
+    const next = (ta.value || '').slice(0, start) + insertText + (ta.value || '').slice(end)
+    updateCustomPrompt(targetId, { text: next })
+    // 把光标移到插入文本之后
+    requestAnimationFrame(() => {
+      ta.focus()
+      const pos = start + insertText.length
+      try { ta.setSelectionRange(pos, pos) } catch { /* ignore */ }
+    })
+  }
 
   // Custom states
   const [showKey, setShowKey] = useState(false)
@@ -602,6 +627,29 @@ export default function SettingsModal() {
                       总字符数 {customPrompts.reduce((sum, p) => sum + (p.text || '').length, 0)}。
                       这些提示词将自动注入到所有 chat 模型的 system 消息。
                     </div>
+
+                    {/* 可用变量面板（点击插入到光标位置） */}
+                    <div className="prompt-variables-panel">
+                      <div className="prompt-variables-title">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                        可用变量 — 点击下方变量将其插入到当前提示词的光标位置
+                      </div>
+                      <div className="prompt-variables-grid">
+                        {AVAILABLE_VARIABLES.map(v => (
+                          <button
+                            key={v.key}
+                            type="button"
+                            className="prompt-var-chip"
+                            onClick={() => insertVariable(v.key)}
+                            title={`示例：${v.example}`}
+                          >
+                            <code>{`{{${v.key}}}`}</code>
+                            <span className="prompt-var-desc">{v.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     {customPrompts.map((p, i) => (
                       <div key={p.id} className={`custom-prompt-item ${p.enabled ? 'is-enabled' : 'is-disabled'}`}>
                         <div className="custom-prompt-toolbar">
@@ -649,6 +697,8 @@ export default function SettingsModal() {
                           placeholder="在此输入提示词内容，无字数限制…"
                           value={p.text || ''}
                           onChange={(e) => updateCustomPrompt(p.id, { text: e.target.value })}
+                          onFocus={() => setFocusedPromptId(p.id)}
+                          ref={(el) => { promptTextareaRefs.current[p.id] = el }}
                           rows={5}
                         />
                         <div className="custom-prompt-meta">
