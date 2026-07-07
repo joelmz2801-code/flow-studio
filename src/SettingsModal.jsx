@@ -7,16 +7,11 @@ const EMPTY = {
   name: '',
   baseUrl: '',
   apiKey: '',
-  imageModel: 'agnes-image-2.1-flash',
-  videoModel: 'agnes-video-2.0',
+  imageModel: '',
+  videoModel: '',
   imagePath: '/v1/images/generations',
   videoPath: '/v1/videos/generations',
-  models: [
-    { id: 'agnes-image-2.1-flash', visible: true, isDefault: true, type: 'image' },
-    { id: 'agnes-image-2.0-flash', visible: true, isDefault: false, type: 'image' },
-    { id: 'agnes-video-2.0', visible: true, isDefault: true, type: 'video' },
-    { id: 'sora-2', visible: true, isDefault: false, type: 'video' }
-  ],
+  models: [],
 }
 
 
@@ -104,21 +99,20 @@ export default function SettingsModal() {
 
   const toggleModelDefault = (modelId) => {
     setDraft((d) => {
+      const targetModel = d.models.find(x => x.id === modelId)
+      const willBeDefault = targetModel ? !targetModel.isDefault : false
       const updatedModels = (d.models || []).map((m) => {
         if (m.id === modelId) {
-          return { ...m, isDefault: !m.isDefault }
+          return { ...m, isDefault: willBeDefault, visible: willBeDefault ? true : m.visible }
         }
-        const targetModel = d.models.find(x => x.id === modelId)
         if (targetModel && m.type === targetModel.type) {
           return { ...m, isDefault: false }
         }
         return m
       })
 
-      const targetModel = d.models.find(x => x.id === modelId)
       const patch = { models: updatedModels }
       if (targetModel) {
-        const willBeDefault = !targetModel.isDefault
         if (targetModel.type === 'video') {
           patch.videoModel = willBeDefault ? modelId : ''
         } else {
@@ -142,6 +136,13 @@ export default function SettingsModal() {
     setDraft((d) => ({
       ...d,
       models: (d.models || []).filter((m) => m.id !== modelId)
+    }))
+  }
+
+  const hideAllModels = () => {
+    setDraft((d) => ({
+      ...d,
+      models: (d.models || []).map((m) => ({ ...m, visible: false }))
     }))
   }
 
@@ -177,7 +178,7 @@ export default function SettingsModal() {
           if (!newModels.some((m) => m.id === modelId)) {
             newModels.push({
               id: modelId,
-              visible: true,
+              visible: false,
               isDefault: false,
               type: modelId.includes('video') || modelId.includes('sora') ? 'video' : 'image'
             })
@@ -185,7 +186,7 @@ export default function SettingsModal() {
         })
         return { ...d, models: newModels }
       })
-      showNotification('success', `获取成功！已加载 ${list.length} 个模型。`)
+      showNotification('success', `获取成功！已加载 ${list.length} 个模型。请点击「眼睛」或「星标」收藏需要的模型，收藏后才会在对话框中显示。`)
     } catch (err) {
       showNotification('error', `获取失败: ${err.message} (通常由于跨域CORS限制，您仍可在列表中手动添加/启用模型)`)
     } finally {
@@ -399,11 +400,14 @@ export default function SettingsModal() {
                         </div>
                         <div>
                           <div className="settings-section-title">模型管理</div>
-                          <div className="settings-section-desc">勾选要在对话框中显示的模型，设置默认模型</div>
+                          <div className="settings-section-desc">仅「收藏/星标」的模型会出现在对话框中，其余默认隐藏</div>
                         </div>
                         <div className="model-header-actions" style={{ marginLeft: 'auto' }}>
                           <button className="model-top-btn" onClick={(e) => { e.preventDefault(); fetchPresetModels(); }} disabled={fetching}>
                             {fetching ? '获取中...' : '获取模型列表'}
+                          </button>
+                          <button className="model-top-btn" onClick={(e) => { e.preventDefault(); hideAllModels(); }} title="将所有模型设为隐藏（保留已设默认）">
+                            全部隐藏
                           </button>
                           <button className="model-top-btn add-btn" onClick={(e) => { e.preventDefault(); handleAddModelPrompt(); }} title="手动添加模型">+</button>
                         </div>
@@ -431,7 +435,7 @@ export default function SettingsModal() {
                               </div>
                               <div className="model-type-group-body">
                                 {group.items.map((m) => (
-                                  <div key={m.id} className="settings-model-row">
+                                  <div key={m.id} className={`settings-model-row ${m.visible ? 'is-visible' : 'is-hidden'}`}>
                                     <div className="settings-model-info">
                                       <span className="settings-model-name-text" title={m.id}>{m.id}</span>
                                     </div>

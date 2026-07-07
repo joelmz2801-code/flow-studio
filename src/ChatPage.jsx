@@ -127,7 +127,7 @@ export default function ChatPage({ chatId }) {
           allVisibleModels.push({
             id: m.id,
             label: m.id,
-            desc: `${m.type === 'video' ? '视频模型' : '图片模型'} | ${p.name || '自定义'}`,
+            desc: `${m.type === 'video' ? '视频模型' : m.type === 'chat' ? '文本模型' : '图片模型'} | ${p.name || '自定义'}`,
             type: m.type || 'image',
             isBuiltin: false
           })
