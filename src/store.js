@@ -200,6 +200,34 @@ export const useStore = create((set, get) => ({
     const chat = chats.find((c) => c.id === chatId)
     if (chat) debouncedSaveChat(chat)
   },
+  deleteMessage: (chatId, msgId) => {
+    const chats = get().chats.map((c) =>
+      c.id === chatId ? { ...c, messages: c.messages.filter((m) => m.id !== msgId) } : c,
+    )
+    persistChats(chats)
+    set({ chats })
+    const chat = chats.find((c) => c.id === chatId)
+    if (chat) debouncedSaveChat(chat)
+  },
+  clearChatMedia: (chatId) => {
+    // 仅清除图片/视频，保留对话文本与时间戳
+    const chats = get().chats.map((c) => {
+      if (c.id !== chatId) return c
+      return {
+        ...c,
+        messages: c.messages.map((m) => ({
+          ...m,
+          images: [],
+          videos: [],
+          refs: [],
+        })),
+      }
+    })
+    persistChats(chats)
+    set({ chats })
+    const chat = chats.find((c) => c.id === chatId)
+    if (chat) debouncedSaveChat(chat)
+  },
   updateMessage: (chatId, msgId, patch) => {
     const chats = get().chats.map((c) =>
       c.id === chatId

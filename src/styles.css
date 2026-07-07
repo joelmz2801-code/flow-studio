@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg: #f7f8fa;
   --panel: #ffffff;
   --card: #ffffff;
@@ -526,6 +526,54 @@ textarea { resize: vertical; line-height: 1.5; }
   background: var(--bg);
 }
 .chat-scroll { flex: 1; overflow-y: auto; }
+
+/* ── 对话顶部操作栏（删除对话/清除图片） ── */
+.chat-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  flex-shrink: 0;
+}
+.chat-topbar-title {
+  font-size: 13.5px; font-weight: 600; color: var(--text);
+  max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chat-topbar-actions { display: flex; gap: 8px; }
+.chat-topbar-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: inherit; font-size: 12px; font-weight: 500;
+  color: var(--muted); background: transparent;
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 11px; cursor: pointer;
+  transition: all 0.15s ease;
+}
+.chat-topbar-btn:hover {
+  color: var(--red); border-color: #f2c1bd; background: #fce8e6;
+}
+
+/* ── 消息悬浮删除按钮 ── */
+.msg { position: relative; }
+.msg-del-btn {
+  position: absolute; top: 0;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--panel);
+  color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-sm);
+  opacity: 0; transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+  z-index: 5;
+}
+.msg-user .msg-del-btn { right: -32px; }
+.msg-ai .msg-del-btn { left: -32px; }
+.msg-del-btn.msg-del-btn-ai { left: 0; top: -8px; }
+.msg-del-btn:hover { color: var(--red); background: #fce8e6; border-color: #f2c1bd; }
+.msg:hover .msg-del-btn { opacity: 1; }
+
+/* ── textarea 高度自适应平滑过渡 ── */
+.composer textarea {
+  transition: height 0.12s ease;
+}
 .chat-thread {
   max-width: 780px; margin: 0 auto; padding: 32px 24px 16px;
   display: flex; flex-direction: column; gap: 22px;

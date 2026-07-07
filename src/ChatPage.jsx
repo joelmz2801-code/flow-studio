@@ -71,7 +71,7 @@ function usePopover() {
 
 export default function ChatPage({ chatId }) {
   const chats = useStore((s) => s.chats)
-  const { createChat, appendMessage, updateMessage, renameChat, setPromptLibOpen, consumePendingPrompt } = useStore()
+  const { createChat, appendMessage, updateMessage, renameChat, setPromptLibOpen, consumePendingPrompt, removeChat, clearChatMedia, deleteMessage } = useStore()
   const pendingPrompt = useStore((st) => st.pendingPrompt)
   const chat = chats.find((c) => c.id === chatId) || null
 
@@ -154,6 +154,39 @@ export default function ChatPage({ chatId }) {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [chat?.messages?.length, busy])
+
+  // textarea 自适应高度：随内容增长，限制 24-160px，平滑过渡
+  const autoGrow = () => {
+    const ta = taRef.current
+    if (!ta) return
+    ta.style.height = 'auto'
+    const next = Math.min(160, Math.max(24, ta.scrollHeight))
+    ta.style.height = next + 'px'
+  }
+  useEffect(() => { autoGrow() }, [input])
+
+  // 删除当前对话（带选项）
+  const handleDeleteChat = () => {
+    if (!chat) return
+    const choice = window.confirm(
+      `删除当前对话「${chat.title || '新对话'}」？\n\n` +
+      `· 点击「确定」→ 删除整个对话（含所有消息）\n` +
+      `· 点击「取消」后再次操作 → 仅清除对话中的图片/视频，保留文字记录\n\n` +
+      `如需「仅清除图片」，请取消此对话框后将再次询问。`
+    )
+    if (choice) {
+      removeChat(chat.id)
+    } else {
+      const sub = window.confirm('改为「仅清除图片/视频」？文字记录将保留。')
+      if (sub) clearChatMedia(chat.id)
+    }
+  }
+
+  // 删除单条消息
+  const handleDeleteMessage = (msgId) => {
+    if (!chat) return
+    if (window.confirm('删除这条消息？')) deleteMessage(chat.id, msgId)
+  }
 
   const attach = async (files) => {
     const list = Array.from(files || []).slice(0, 4 - refs.length)
@@ -260,7 +293,12 @@ export default function ChatPage({ chatId }) {
 
     const userMsg = {
       id: `m${Date.now()}u`, role: 'user', text, refs, time: Date.now(),
-      meta: [ratio.id !== 'auto' && ratio.name !== '1:1' ? `画幅 ${ratio.name}` : '', style.id !== 'none' ? style.name : '', activeModel].filter(Boolean),
+      meta: [
+        refs.length > 0 ? `图生图 ×${refs.length}` : '',
+        ratio.id !== 'auto' && ratio.name !== '1:1' ? `画幅 ${ratio.name}` : '',
+        style.id !== 'none' ? style.name : '',
+        activeModel
+      ].filter(Boolean),
     }
     appendMessage(id, userMsg)
 
@@ -342,6 +380,26 @@ export default function ChatPage({ chatId }) {
           </div>
         </div>
       )}
+
+      {/* 顶部对话操作栏：仅在有消息时显示 */}
+      {chat && chat.messages && chat.messages.length > 0 && (
+        <div className="chat-topbar">
+          <div className="chat-topbar-title" title={chat.title || '新对话'}>
+            {chat.title || '新对话'}
+          </div>
+          <div className="chat-topbar-actions">
+            <button
+              className="chat-topbar-btn"
+              onClick={handleDeleteChat}
+              title="删除对话 / 清除图片"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              删除对话
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="chat-scroll" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="chat-hero">
@@ -361,7 +419,7 @@ export default function ChatPage({ chatId }) {
         ) : (
           <div className="chat-thread">
             {messages.map((m) => (
-              <Message key={m.id} m={m} />
+              <Message key={m.id} m={m} onDelete={handleDeleteMessage} />
             ))}
           </div>
         )}
@@ -570,15 +628,16 @@ function RatioIcon({ w, h }) {
 
 const revealedSet = new Set()
 
-function Message({ m }) {
+function Message({ m, onDelete }) {
   const shouldAnimate = m.status === 'done' && m.images?.filter(Boolean).length > 0 && !revealedSet.has(m.id)
+  const [hovered, setHovered] = useState(false)
 
   if (shouldAnimate) {
     revealedSet.add(m.id)
   }
   if (m.role === 'user') {
     return (
-      <div className="msg msg-user">
+      <div className="msg msg-user" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
         <div className="bubble bubble-user">
           {m.refs?.length > 0 && (
             <div className="msg-refs">
@@ -590,13 +649,18 @@ function Message({ m }) {
             <div className="msg-meta">{m.meta.map((t) => <span key={t}>{t}</span>)}</div>
           )}
         </div>
+        {hovered && onDelete && m.status !== 'loading' && (
+          <button className="msg-del-btn" onClick={() => onDelete(m.id)} title="删除此消息">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/></svg>
+          </button>
+        )}
       </div>
     )
   }
 
   const ar = m.ratio ? `${m.ratio.w} / ${m.ratio.h}` : '1 / 1'
   return (
-    <div className="msg msg-ai">
+    <div className="msg msg-ai" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <div className="ai-avatar">
         <Logo size={28} />
       </div>
@@ -629,6 +693,11 @@ function Message({ m }) {
           <div className="gen-error">（媒体数据未保留，仅保存了会话记录）</div>
         )}
       </div>
+      {hovered && onDelete && m.status !== 'loading' && (
+        <button className="msg-del-btn msg-del-btn-ai" onClick={() => onDelete(m.id)} title="删除此消息">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/></svg>
+        </button>
+      )}
 
     </div>
   )
