@@ -340,7 +340,13 @@ export default function ChatPage({ chatId }) {
         const video = await generateVideo({ prompt, model: activeModel, refImage: refs[0] }, controller.signal)
         updateMessage(id, aiId, { status: 'done', videos: [video], text: '' })
       } else if (activeIsChat) {
-        const chatContext = [{ role: 'user', content: prompt }]
+        // 多轮上下文：从当前对话累积所有 user/assistant 消息
+        // 排除 status='loading' 或 'error' 的占位消息
+        const current = useStore.getState().chats.find((c) => c.id === id)
+        const history = (current?.messages || [])
+          .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.text && m.status !== 'loading')
+          .map((m) => ({ role: m.role, content: m.text }))
+        const chatContext = history.length > 0 ? history : [{ role: 'user', content: prompt }]
         const responseText = await generateChat({ messages: chatContext, model: activeModel }, controller.signal)
         updateMessage(id, aiId, { status: 'done', text: responseText })
       } else {

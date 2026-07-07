@@ -299,6 +299,23 @@ export function resolveModelWithPresets(modelId, presets) {
   }
 }
 
+async function urlToDataUri(url, signal) {
+  if (!url || url.startsWith('data:')) return url
+  try {
+    const res = await fetch(url, { signal })
+    if (!res.ok) return url
+    const blob = await res.blob()
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return url
+  }
+}
+
 export async function generateImage({ prompt, size, refs = [], model }, signal) {
   const presets = useStore.getState().presets
   const ch = resolveModelWithPresets(model || DEFAULT_MODEL, presets)
@@ -315,8 +332,10 @@ export async function generateImage({ prompt, size, refs = [], model }, signal) 
   const isGptModel = /^gpt-image/i.test(ch.apiModel)
   if (hasRefs) {
     // refs 是 string[]，元素为 Data URI (data:image/png;base64,...) 或 URL
+    // 自动把 URL refs 转 base64（部分中转代理不直接接受 URL）
+    const normalized = await Promise.all(refs.map((r) => urlToDataUri(r, signal)))
     // ComfyUI 经验：单张图传字符串，多张图传数组（部分 API 仅接受数组）
-    const imageData = refs.length === 1 ? refs[0] : refs
+    const imageData = normalized.length === 1 ? normalized[0] : normalized
     if (isGptModel) {
       body.image = imageData
       body.response_format = 'url'
