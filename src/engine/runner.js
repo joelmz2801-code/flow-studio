@@ -316,16 +316,39 @@ async function urlToDataUri(url, signal) {
   }
 }
 
+// 检测字符串是否包含中文字符
+function hasChinese(text) {
+  if (!text) return false
+  return /[\u4e00-\u9fa5]/.test(text)
+}
+
+// 用 Command 模型把中文 prompt 翻译为英文（失败时回退原文，不阻塞生图流程）
+async function translatePromptToEnglish(text, signal) {
+  if (!text || !hasChinese(text)) return text
+  try {
+    const translated = await generateChat({
+      messages: [
+        {
+          role: 'system',
+          content: 'Translate the user\'s image generation prompt into fluent English. Return ONLY the English prompt, without any commentary, quotes, or explanations.',
+        },
+        { role: 'user', content: text },
+      ],
+      model: 'command-a-vision',
+    }, signal)
+    return (translated || text).trim()
+  } catch {
+    return text
+  }
+}
+
 export async function generateImage({ prompt, size, refs = [], model }, signal) {
   const presets = useStore.getState().presets
   const ch = resolveModelWithPresets(model || DEFAULT_MODEL, presets)
   const hasRefs = refs && refs.length > 0
-  // 对齐 ComfyUI comfyui-agnes-ai 节点的实现：
-  // 1) Agnes 官方模型（agnes-image-*）必须把 image/response_format 放在 extra_body
-  // 2) GPT 系列（gpt-image-*）则放在顶层
-  // 3) 顶层只保留 model/prompt/n/size
-  // 不这样做的话 Agnes 服务器会忽略 image 字段，退化为文生图
-  const body = { model: ch.apiModel, prompt, n: 1 }
+  // 中文 prompt 自动翻译成英文（Agnes 训练集以英文为主，中文直出质量差）
+  const finalPrompt = await translatePromptToEnglish(prompt, signal)
+  const body = { model: ch.apiModel, prompt: finalPrompt, n: 1 }
   const snapped = snapSizeForModel(ch.apiModel, size)
   if (snapped) body.size = snapped
 
@@ -373,7 +396,9 @@ export async function generateImage({ prompt, size, refs = [], model }, signal) 
 export async function generateVideo({ prompt, model, refImage }, signal) {
   const presets = useStore.getState().presets
   const ch = resolveModelWithPresets(model, presets)
-  const body = { model: ch.apiModel, prompt }
+  // 中文 prompt 自动翻译成英文后再送生视频模型
+  const finalPrompt = await translatePromptToEnglish(prompt, signal)
+  const body = { model: ch.apiModel, prompt: finalPrompt }
   if (refImage) body.image = refImage
 
   const total = ch.keys.length

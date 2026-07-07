@@ -188,6 +188,39 @@ export default function ChatPage({ chatId }) {
     if (window.confirm('删除这条消息？')) deleteMessage(chat.id, msgId)
   }
 
+  // 复制消息内容（文本/图片 URL/视频 URL）
+  const handleCopyMessage = async (m) => {
+    let payload = ''
+    if (m.images?.filter(Boolean).length > 0) {
+      payload = m.images.find(Boolean) || ''
+    } else if (m.videos?.filter(Boolean).length > 0) {
+      payload = m.videos.find(Boolean) || ''
+    } else {
+      payload = m.text || ''
+    }
+    if (!payload) return
+    try {
+      await navigator.clipboard.writeText(payload)
+    } catch {
+      try { await navigator.clipboard.writeText(m.text || '') } catch {}
+    }
+    setToast('已复制')
+  }
+
+  // 重新生成：使用原消息的 text + refs 重新发送
+  const handleRegenerate = (m) => {
+    if (!chat || busy) return
+    send(m.text, m.refs || [])
+  }
+
+  // 轻量 toast（复制成功提示，2 秒自动消失）
+  const [toast, setToast] = useState(null)
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 1600)
+    return () => clearTimeout(t)
+  }, [toast])
+
   // 将 AI 生成的图片添加到输入框作为参考图（上限 4 张）
   const addAsReference = (images) => {
     const valid = (images || []).filter(Boolean)
@@ -283,11 +316,14 @@ export default function ChatPage({ chatId }) {
     return explicitPatterns.some((re) => re.test(t) || re.test(tl))
   }
 
-  const send = async (textOverride) => {
+  const send = async (textOverride, refsOverride) => {
     const text = (textOverride ?? input).trim()
     if (!text || busy) return
     let id = chatId
     if (!chat) id = createChat()
+
+    // 重新生成时使用原消息的 refs；否则用当前 state
+    const activeRefs = refsOverride || refs
 
     // 自动转接逻辑：
     // 1. 上传了参考图 → 一律走图生图（agnes-image-2.1-flash），不管文字是否含生图关键词
@@ -295,7 +331,7 @@ export default function ChatPage({ chatId }) {
     let activeModel = model
     let activeIsVideo = isVideo
     let activeIsChat = isChat
-    if (refs.length > 0) {
+    if (activeRefs.length > 0) {
       // 有参考图 → 图生图模式
       activeModel = 'agnes-image-2.1-flash'
       activeIsVideo = false
@@ -307,9 +343,9 @@ export default function ChatPage({ chatId }) {
     }
 
     const userMsg = {
-      id: `m${Date.now()}u`, role: 'user', text, refs, time: Date.now(),
+      id: `m${Date.now()}u`, role: 'user', text, refs: activeRefs, time: Date.now(),
       meta: [
-        refs.length > 0 ? `图生图 ×${refs.length}` : '',
+        activeRefs.length > 0 ? `图生图 ×${activeRefs.length}` : '',
         ratio.id !== 'auto' && ratio.name !== '1:1' ? `画幅 ${ratio.name}` : '',
         style.id !== 'none' ? style.name : '',
         activeModel
@@ -329,15 +365,18 @@ export default function ChatPage({ chatId }) {
       ratio: ratio.id === 'auto' ? null : { w: ratio.w, h: ratio.h }, time: Date.now(),
     })
 
-    setInput('')
-    setRefs([])
+    // 重新生成时不清空当前输入框和 ref chips（保留用户当前输入上下文）
+    if (!refsOverride) {
+      setInput('')
+      setRefs([])
+    }
     setBusy(true)
     const controller = new AbortController()
     abortRef.current = controller
     try {
       const prompt = style.prompt ? `${text}\n\n画面风格：${style.prompt}` : text
       if (activeIsVideo) {
-        const video = await generateVideo({ prompt, model: activeModel, refImage: refs[0] }, controller.signal)
+        const video = await generateVideo({ prompt, model: activeModel, refImage: activeRefs[0] }, controller.signal)
         updateMessage(id, aiId, { status: 'done', videos: [video], text: '' })
       } else if (activeIsChat) {
         // 多轮上下文：从当前对话累积所有 user/assistant 消息
@@ -350,7 +389,7 @@ export default function ChatPage({ chatId }) {
         const responseText = await generateChat({ messages: chatContext, model: activeModel }, controller.signal)
         updateMessage(id, aiId, { status: 'done', text: responseText })
       } else {
-        const img = await generateImage({ prompt, size: ratio.id === 'auto' ? undefined : sizeForRatio(ratio.w, ratio.h), refs, model: activeModel }, controller.signal)
+        const img = await generateImage({ prompt, size: ratio.id === 'auto' ? undefined : sizeForRatio(ratio.w, ratio.h), refs: activeRefs, model: activeModel }, controller.signal)
         updateMessage(id, aiId, { status: 'done', images: [img], text: '' })
       }
     } catch (err) {
@@ -431,7 +470,14 @@ export default function ChatPage({ chatId }) {
         ) : (
           <div className="chat-thread">
             {messages.map((m) => (
-              <Message key={m.id} m={m} onDelete={handleDeleteMessage} onAddReference={addAsReference} />
+              <Message
+                key={m.id}
+                m={m}
+                onDelete={handleDeleteMessage}
+                onAddReference={addAsReference}
+                onCopy={handleCopyMessage}
+                onRegenerate={m.role === 'user' ? handleRegenerate : null}
+              />
             ))}
           </div>
         )}
@@ -619,6 +665,9 @@ export default function ChatPage({ chatId }) {
         </div>
         <div className="composer-hint">生成结果由 AI 模型生成 · 请遵守相关法律法规</div>
       </div>
+
+      {/* 轻量 toast 提示（复制成功等） */}
+      {toast && <div className="msg-toast">{toast}</div>}
     </div>
   )
 }
@@ -640,7 +689,7 @@ function RatioIcon({ w, h }) {
 
 const revealedSet = new Set()
 
-function Message({ m, onDelete, onAddReference }) {
+function Message({ m, onDelete, onAddReference, onCopy, onRegenerate }) {
   const shouldAnimate = m.status === 'done' && m.images?.filter(Boolean).length > 0 && !revealedSet.has(m.id)
   const [hovered, setHovered] = useState(false)
 
@@ -662,12 +711,26 @@ function Message({ m, onDelete, onAddReference }) {
               <div className="msg-meta">{m.meta.map((t) => <span key={t}>{t}</span>)}</div>
             )}
           </div>
-          {hovered && onDelete && m.status !== 'loading' && (
+          {hovered && m.status !== 'loading' && (
             <div className="msg-foot">
-              <button className="msg-del-btn" onClick={() => onDelete(m.id)} title="删除此消息">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                删除
-              </button>
+              {onCopy && (
+                <button className="msg-act-btn" onClick={() => onCopy(m)} title="复制消息内容">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  复制
+                </button>
+              )}
+              {onRegenerate && (
+                <button className="msg-act-btn" onClick={() => onRegenerate(m)} title="使用同一条指令和参考图重新生成">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  重新生成
+                </button>
+              )}
+              {onDelete && (
+                <button className="msg-del-btn" onClick={() => onDelete(m.id)} title="删除此消息">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                  删除
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -711,18 +774,26 @@ function Message({ m, onDelete, onAddReference }) {
             <div className="gen-error">（媒体数据未保留，仅保存了会话记录）</div>
           )}
         </div>
-        {hovered && onDelete && m.status !== 'loading' && (
+        {hovered && m.status !== 'loading' && (
           <div className="msg-foot">
             {m.images?.filter(Boolean).length > 0 && onAddReference && (
-              <button className="msg-ref-btn" onClick={() => onAddReference(m.images)} title="添加为参考图">
+              <button className="msg-act-btn" onClick={() => onAddReference(m.images)} title="添加为参考图">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
                 参考图
               </button>
             )}
-            <button className="msg-del-btn" onClick={() => onDelete(m.id)} title="删除此消息">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-              删除
-            </button>
+            {onCopy && (
+              <button className="msg-act-btn" onClick={() => onCopy(m)} title="复制消息内容">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                复制
+              </button>
+            )}
+            {onDelete && (
+              <button className="msg-del-btn" onClick={() => onDelete(m.id)} title="删除此消息">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                删除
+              </button>
+            )}
           </div>
         )}
       </div>
