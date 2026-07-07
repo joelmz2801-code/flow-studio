@@ -281,11 +281,18 @@ export default function ChatPage({ chatId }) {
     let id = chatId
     if (!chat) id = createChat()
 
-    // 自动转接：当前是文本模型且用户**明确**要求生图 → 强制切到 Agnes 2.1 Flash
+    // 自动转接逻辑：
+    // 1. 上传了参考图 → 一律走图生图（agnes-image-2.1-flash），不管文字是否含生图关键词
+    // 2. 无参考图 + 当前是文本模型 + 用户明确要求生图 → 切到文生图
     let activeModel = model
     let activeIsVideo = isVideo
     let activeIsChat = isChat
-    if (isChat && detectImageIntent(text)) {
+    if (refs.length > 0) {
+      // 有参考图 → 图生图模式
+      activeModel = 'agnes-image-2.1-flash'
+      activeIsVideo = false
+      activeIsChat = false
+    } else if (isChat && detectImageIntent(text)) {
       activeModel = 'agnes-image-2.1-flash'
       activeIsVideo = false
       activeIsChat = false

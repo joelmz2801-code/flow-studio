@@ -281,20 +281,15 @@ export async function generateImage({ prompt, size, refs = [], model }, signal) 
   const presets = useStore.getState().presets
   const ch = resolveModelWithPresets(model || DEFAULT_MODEL, presets)
   const hasRefs = refs && refs.length > 0
-  // 图生图：有参考图时，传 image 字段；端点优先走 /v1/images/edits
-  // Agnes-Image-2.1-Flash 兼容 OpenAI 风格接口，支持 image 参数（base64/url 数组）
+  // Agnes API: 文生图和图生图都用 /v1/images/generations 端点
+  // 图生图只需在 body 中加 image 字段（string[]，支持 Data URI Base64 或 URL）
+  // 文档: https://juejin.cn/post/7656739536886530090
   const body = { model: ch.apiModel, prompt, n: 1 }
   const snapped = snapSizeForModel(ch.apiModel, size)
   if (snapped) body.size = snapped
   if (hasRefs) {
     body.image = refs
-    body.mode = 'edit'
   }
-
-  // 端点选择：图生图 → /v1/images/edits；文生图 → 预设 imagePath
-  const basePath = hasRefs
-    ? (ch.imagePath ? ch.imagePath.replace(/generations$/, 'edits') : '/v1/images/edits')
-    : ch.imagePath
 
   const total = ch.keys.length
   if (total === 0) {
@@ -305,24 +300,12 @@ export async function generateImage({ prompt, size, refs = [], model }, signal) 
   for (let i = 0; i < total; i++) {
     const idx = (start + i) % total
     try {
-      const json = await apiPost(joinUrl(ch.baseUrl, basePath), ch.keys[idx], body, signal)
+      const json = await apiPost(joinUrl(ch.baseUrl, ch.imagePath), ch.keys[idx], body, signal)
       const img = extractImage(json)
       if (!img) throw new Error('响应中未找到图片: ' + JSON.stringify(json).slice(0, 200))
       if (idx !== start && ch.providerId !== 'custom') setKeyIndex(ch.providerId, idx)
       return img
     } catch (err) {
-      // 图生图 edits 端点失败时，回退到 generations 端点（部分中转站仅支持 generations + image 参数）
-      if (hasRefs && /404|not found|endpoint/i.test(err?.message || '')) {
-        try {
-          const fallbackJson = await apiPost(joinUrl(ch.baseUrl, ch.imagePath), ch.keys[idx], body, signal)
-          const img = extractImage(fallbackJson)
-          if (img) return img
-        } catch (fallbackErr) {
-          if (fallbackErr?.name === 'AbortError') throw fallbackErr
-          lastErr = fallbackErr
-          continue
-        }
-      }
       if (err?.name === 'AbortError') throw err
       lastErr = err
       if (isQuotaError(err) && i < total - 1) continue

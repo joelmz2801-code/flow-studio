@@ -53,6 +53,18 @@ function loadPresetsFromStorage(key) {
     if (raw) {
       const arr = JSON.parse(raw)
       if (Array.isArray(arr) && arr.length) {
+        // 一次性迁移 v2：旧版 fetchPresetModels 把所有抓取的模型设为 visible:true，
+        // 导致对话框下拉列表涌入 300+ 未收藏模型。此处将所有模型重置为 visible:false，
+        // 用户需手动点眼睛/星标收藏后才会在对话框出现。
+        const migrationKey = 'jfs-model-migration-v2'
+        if (!localStorage.getItem(migrationKey)) {
+          arr.forEach(p => {
+            if (p.models && Array.isArray(p.models)) {
+              p.models = p.models.map(m => ({ ...m, visible: false }))
+            }
+          })
+          localStorage.setItem(migrationKey, '1')
+        }
         return arr.map(p => ({ ...p, models: p.models || [] }))
       }
     }

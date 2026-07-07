@@ -1257,12 +1257,113 @@ textarea { resize: vertical; line-height: 1.5; }
   color: var(--blue);
 }
 .model-top-btn.add-btn {
-  font-size: 14px;
-  font-weight: 700;
-  width: 28px;
-  height: 28px;
-  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  width: auto;
+  height: auto;
 }
+.model-top-btn.add-btn.active {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+
+/* ── 自定义添加模型内联表单 ── */
+.add-model-inline-form {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #f0f5ff 0%, #f7f0ff 100%);
+  border: 1px solid #d8e0ff;
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+.add-model-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 160px;
+}
+.add-model-field > label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+.add-model-field input {
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.add-model-field input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
+}
+.add-model-type-selector {
+  display: flex;
+  gap: 4px;
+}
+.add-model-type-selector button {
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  color: var(--muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex: 1;
+}
+.add-model-type-selector button:hover {
+  border-color: #aecbfa;
+  color: var(--text);
+}
+.add-model-type-selector button.active {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+.add-model-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.add-model-cancel {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  color: var(--muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.add-model-cancel:hover { background: var(--bg); }
+.add-model-confirm {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border: none;
+  background: var(--blue);
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.add-model-confirm:hover { background: #1557b0; }
 
 .model-inner-search {
   width: 100%;
@@ -1281,10 +1382,6 @@ textarea { resize: vertical; line-height: 1.5; }
 }
 
 .settings-model-list {
-  max-height: 320px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scroll-behavior: smooth;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #fdfdfd;

@@ -27,6 +27,10 @@ export default function SettingsModal() {
   const [fetching, setFetching] = useState(false)
   const [modelSearchQuery, setModelSearchQuery] = useState('')
   const [notify, setNotify] = useState(null) // { type: 'success'|'error'|'info', message: '...' }
+  // 自定义添加模型表单状态
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newModelName, setNewModelName] = useState('')
+  const [newModelType, setNewModelType] = useState('image')
 
   const showNotification = (type, message) => {
     setNotify({ type, message })
@@ -146,21 +150,34 @@ export default function SettingsModal() {
     }))
   }
 
-  const handleAddModelPrompt = () => {
-    const name = window.prompt('请输入自定义模型名称：')
-    if (!name || !name.trim()) return
-    const id = name.trim()
-    setDraft((d) => {
-      const exists = (d.models || []).some(m => m.id === id)
-      if (exists) return d
-      const newModel = {
-        id,
-        visible: true,
-        isDefault: false,
-        type: id.includes('video') || id.includes('sora') ? 'video' : 'image'
-      }
-      return { ...d, models: [...(d.models || []), newModel] }
-    })
+  const handleAddModel = () => {
+    const name = newModelName.trim()
+    if (!name) {
+      showNotification('info', '请输入模型名称')
+      return
+    }
+    const exists = (draft?.models || []).some(m => m.id === name)
+    if (exists) {
+      showNotification('error', `模型「${name}」已存在`)
+      return
+    }
+    const newModel = {
+      id: name,
+      visible: true,
+      isDefault: false,
+      type: newModelType
+    }
+    setDraft((d) => ({ ...d, models: [...(d.models || []), newModel] }))
+    showNotification('success', `已添加模型「${name}」，默认已收藏（对话框可见）`)
+    setNewModelName('')
+    setNewModelType('image')
+    setShowAddForm(false)
+  }
+
+  const cancelAddModel = () => {
+    setNewModelName('')
+    setNewModelType('image')
+    setShowAddForm(false)
   }
 
   const fetchPresetModels = async () => {
@@ -409,9 +426,56 @@ export default function SettingsModal() {
                           <button className="model-top-btn" onClick={(e) => { e.preventDefault(); hideAllModels(); }} title="将所有模型设为隐藏（保留已设默认）">
                             全部隐藏
                           </button>
-                          <button className="model-top-btn add-btn" onClick={(e) => { e.preventDefault(); handleAddModelPrompt(); }} title="手动添加模型">+</button>
+                          <button
+                            className={`model-top-btn add-btn ${showAddForm ? 'active' : ''}`}
+                            onClick={(e) => { e.preventDefault(); setShowAddForm(v => !v); }}
+                            title="手动添加模型"
+                          >
+                            {showAddForm ? '取消' : '+ 添加'}
+                          </button>
                         </div>
                       </div>
+
+                      {/* 自定义添加模型内联表单 */}
+                      {showAddForm && (
+                        <div className="add-model-inline-form">
+                          <div className="add-model-field">
+                            <label>模型名称</label>
+                            <input
+                              type="text"
+                              value={newModelName}
+                              onChange={(e) => setNewModelName(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddModel(); } }}
+                              placeholder="例如：gpt-4o, claude-3-opus, agnes-image-2.1..."
+                              autoFocus
+                            />
+                          </div>
+                          <div className="add-model-field">
+                            <label>类型</label>
+                            <div className="add-model-type-selector">
+                              <button
+                                type="button"
+                                className={newModelType === 'image' ? 'active' : ''}
+                                onClick={() => setNewModelType('image')}
+                              >🖼 图片</button>
+                              <button
+                                type="button"
+                                className={newModelType === 'video' ? 'active' : ''}
+                                onClick={() => setNewModelType('video')}
+                              >🎬 视频</button>
+                              <button
+                                type="button"
+                                className={newModelType === 'chat' ? 'active' : ''}
+                                onClick={() => setNewModelType('chat')}
+                              >💬 文本</button>
+                            </div>
+                          </div>
+                          <div className="add-model-actions">
+                            <button className="add-model-cancel" onClick={(e) => { e.preventDefault(); cancelAddModel(); }}>取消</button>
+                            <button className="add-model-confirm" onClick={(e) => { e.preventDefault(); handleAddModel(); }}>确认添加</button>
+                          </div>
+                        </div>
+                      )}
 
                       <input
                         type="text"
