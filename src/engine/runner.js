@@ -143,7 +143,17 @@ export async function runGraph(targetIds, { nodes, edges, updateData }) {
             n: 1,
             size: d.size || '1024x1024',
           }
-          if (refs?.length) body.image = refs // 参考图（多数兼容网关接受 base64/url 数组）
+          // 对齐 ComfyUI：Agnes 模型走 extra_body，GPT 模型走顶层
+          if (refs?.length) {
+            const isGpt = /^gpt-image/i.test(config.imageModel)
+            const imageData = refs.length === 1 ? refs[0] : refs
+            if (isGpt) {
+              body.image = imageData
+              body.response_format = 'url'
+            } else {
+              body.extra_body = { response_format: 'url', image: imageData }
+            }
+          }
           const json = await apiPost(joinUrl(config.baseUrl, config.imagePath), config.apiKey, body)
           const img = extractImage(json)
           if (!img) throw new Error('响应中未找到图片: ' + JSON.stringify(json).slice(0, 200))
@@ -293,14 +303,29 @@ export async function generateImage({ prompt, size, refs = [], model }, signal) 
   const presets = useStore.getState().presets
   const ch = resolveModelWithPresets(model || DEFAULT_MODEL, presets)
   const hasRefs = refs && refs.length > 0
-  // Agnes API: 文生图和图生图都用 /v1/images/generations 端点
-  // 图生图只需在 body 中加 image 字段（string[]，支持 Data URI Base64 或 URL）
-  // 文档: https://juejin.cn/post/7656739536886530090
+  // 对齐 ComfyUI comfyui-agnes-ai 节点的实现：
+  // 1) Agnes 官方模型（agnes-image-*）必须把 image/response_format 放在 extra_body
+  // 2) GPT 系列（gpt-image-*）则放在顶层
+  // 3) 顶层只保留 model/prompt/n/size
+  // 不这样做的话 Agnes 服务器会忽略 image 字段，退化为文生图
   const body = { model: ch.apiModel, prompt, n: 1 }
   const snapped = snapSizeForModel(ch.apiModel, size)
   if (snapped) body.size = snapped
+
+  const isGptModel = /^gpt-image/i.test(ch.apiModel)
   if (hasRefs) {
-    body.image = refs
+    // refs 是 string[]，元素为 Data URI (data:image/png;base64,...) 或 URL
+    // ComfyUI 经验：单张图传字符串，多张图传数组（部分 API 仅接受数组）
+    const imageData = refs.length === 1 ? refs[0] : refs
+    if (isGptModel) {
+      body.image = imageData
+      body.response_format = 'url'
+    } else {
+      body.extra_body = {
+        response_format: 'url',
+        image: imageData,
+      }
+    }
   }
 
   const total = ch.keys.length
