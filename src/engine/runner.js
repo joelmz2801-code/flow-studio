@@ -1,5 +1,4 @@
 import { getBuiltinConfig, resolveModel, randomKeyIndex, isQuotaError, DEFAULT_MODEL } from './builtin.js'
-import { SYSTEM_PROMPT } from './systemPrompt.js'
 import { useStore } from '../store.js'
 
 // ─────────────────────────────────────────────
@@ -410,13 +409,13 @@ export async function generateVideo({ prompt, model, refImage }, signal) {
 export async function generateChat({ messages, model }, signal) {
   const presets = useStore.getState().presets
   const ch = resolveModelWithPresets(model, presets)
-  // 注入全局系统提示词 + 用户自定义提示词（按顺序拼接）
+  // 注入用户自定义提示词（按顺序拼接为 system message）
+  // 不再硬编码任何系统提示词，完全由用户在设置 → 提示词 tab 自行配置
   const hasSystem = messages?.some((m) => m.role === 'system')
   const customParts = (useStore.getState().customPrompts || [])
     .filter((p) => p && p.enabled && (p.text || '').trim())
     .map((p) => (p.name ? `[${p.name}]\n${p.text}` : p.text))
-  const basePart = SYSTEM_PROMPT
-  const sysContent = [basePart, ...customParts].filter(Boolean).join('\n\n')
+  const sysContent = customParts.join('\n\n')
   const finalMessages = (hasSystem || !sysContent)
     ? messages
     : [{ role: 'system', content: sysContent }, ...messages]

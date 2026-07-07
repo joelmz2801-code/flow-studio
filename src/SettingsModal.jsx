@@ -580,7 +580,7 @@ export default function SettingsModal() {
                   </div>
                   <div>
                     <div className="settings-section-title">自定义系统提示词</div>
-                    <div className="settings-section-desc">每条独立管理，按顺序拼接到 system message。可无上限添加，字数无限制</div>
+                    <div className="settings-section-desc">这里是你定义 AI 身份与行为的唯一入口。每条独立管理，按顺序拼接到 system message。可无上限添加，字数无限制</div>
                   </div>
                   <div className="model-header-actions" style={{ marginLeft: 'auto' }}>
                     <button
