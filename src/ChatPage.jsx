@@ -188,6 +188,14 @@ export default function ChatPage({ chatId }) {
     if (window.confirm('删除这条消息？')) deleteMessage(chat.id, msgId)
   }
 
+  // 将 AI 生成的图片添加到输入框作为参考图（上限 4 张）
+  const addAsReference = (images) => {
+    const valid = (images || []).filter(Boolean)
+    if (valid.length === 0) return
+    setRefs((r) => [...r, ...valid].slice(0, 4))
+    setTimeout(() => taRef.current?.focus(), 0)
+  }
+
   const attach = async (files) => {
     const list = Array.from(files || []).slice(0, 4 - refs.length)
     const urls = await Promise.all(list.map(fileToDataUrl))
@@ -379,15 +387,6 @@ export default function ChatPage({ chatId }) {
       onDragLeave={handleDragLeave}
       onPaste={handlePaste}
     >
-      {dragOver && (
-        <div className="chat-drop-overlay">
-          <div className="chat-drop-text">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-            松开以添加参考图
-          </div>
-        </div>
-      )}
-
       {/* 顶部对话操作栏：仅在有消息时显示 */}
       {chat && chat.messages && chat.messages.length > 0 && (
         <div className="chat-topbar">
@@ -426,7 +425,7 @@ export default function ChatPage({ chatId }) {
         ) : (
           <div className="chat-thread">
             {messages.map((m) => (
-              <Message key={m.id} m={m} onDelete={handleDeleteMessage} />
+              <Message key={m.id} m={m} onDelete={handleDeleteMessage} onAddReference={addAsReference} />
             ))}
           </div>
         )}
@@ -635,7 +634,7 @@ function RatioIcon({ w, h }) {
 
 const revealedSet = new Set()
 
-function Message({ m, onDelete }) {
+function Message({ m, onDelete, onAddReference }) {
   const shouldAnimate = m.status === 'done' && m.images?.filter(Boolean).length > 0 && !revealedSet.has(m.id)
   const [hovered, setHovered] = useState(false)
 
@@ -645,22 +644,27 @@ function Message({ m, onDelete }) {
   if (m.role === 'user') {
     return (
       <div className="msg msg-user" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
-        <div className="bubble bubble-user">
-          {m.refs?.length > 0 && (
-            <div className="msg-refs">
-              {m.refs.map((r, i) => r && <img key={i} src={r} alt="参考图" />)}
+        <div className="msg-content">
+          <div className="bubble bubble-user">
+            {m.refs?.length > 0 && (
+              <div className="msg-refs">
+                {m.refs.map((r, i) => r && <img key={i} src={r} alt="参考图" />)}
+              </div>
+            )}
+            {m.text}
+            {m.meta?.length > 0 && (
+              <div className="msg-meta">{m.meta.map((t) => <span key={t}>{t}</span>)}</div>
+            )}
+          </div>
+          {hovered && onDelete && m.status !== 'loading' && (
+            <div className="msg-foot">
+              <button className="msg-del-btn" onClick={() => onDelete(m.id)} title="删除此消息">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                删除
+              </button>
             </div>
           )}
-          {m.text}
-          {m.meta?.length > 0 && (
-            <div className="msg-meta">{m.meta.map((t) => <span key={t}>{t}</span>)}</div>
-          )}
         </div>
-        {hovered && onDelete && m.status !== 'loading' && (
-          <button className="msg-del-btn" onClick={() => onDelete(m.id)} title="删除此消息">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/></svg>
-          </button>
-        )}
       </div>
     )
   }
@@ -671,41 +675,51 @@ function Message({ m, onDelete }) {
       <div className="ai-avatar">
         <Logo size={28} />
       </div>
-      <div className="bubble bubble-ai">
-        {m.status === 'loading' && m.mediaType === 'chat' && (
-          <div className="gen-text-loading" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--muted)', fontSize: '13px' }}>
-            <span className="spinner spinner-blue" />
-            正在思考…
-          </div>
-        )}
-        {m.status === 'loading' && m.mediaType !== 'chat' && (
-          <div className="gen-frame" style={{ aspectRatio: ar }}>
-            <div className="gen-mist" />
-            <div className="gen-sheen" />
-            <div className="gen-frame-label">
+      <div className="msg-content">
+        <div className="bubble bubble-ai">
+          {m.status === 'loading' && m.mediaType === 'chat' && (
+            <div className="gen-text-loading" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--muted)', fontSize: '13px' }}>
               <span className="spinner spinner-blue" />
-              {m.mediaType === 'video' ? '正在生成视频…' : '正在绘制…'}
+              正在思考…
             </div>
+          )}
+          {m.status === 'loading' && m.mediaType !== 'chat' && (
+            <div className="gen-frame" style={{ aspectRatio: ar }}>
+              <div className="gen-mist" />
+              <div className="gen-sheen" />
+              <div className="gen-frame-label">
+                <span className="spinner spinner-blue" />
+                {m.mediaType === 'video' ? '正在生成视频…' : '正在绘制…'}
+              </div>
+            </div>
+          )}
+          {m.status === 'error' && <div className="gen-error">⚠ 生成失败：{m.text}</div>}
+          {m.text && m.status === 'done' && <div className="ai-chat-text" style={{ whiteSpace: 'pre-wrap' }}>{m.text}</div>}
+          {m.images?.filter(Boolean).map((img, i) => (
+            <RevealImage key={i} src={img} ratio={ar} animate={shouldAnimate} />
+          ))}
+          {m.videos?.filter(Boolean).map((vid, i) => (
+            <RevealVideo key={i} src={vid} ratio={ar} />
+          ))}
+          {m.status === 'done' && m.images?.filter(Boolean).length === 0 && m.videos?.filter(Boolean).length === 0 && !m.text && (
+            <div className="gen-error">（媒体数据未保留，仅保存了会话记录）</div>
+          )}
+        </div>
+        {hovered && onDelete && m.status !== 'loading' && (
+          <div className="msg-foot">
+            {m.images?.filter(Boolean).length > 0 && onAddReference && (
+              <button className="msg-ref-btn" onClick={() => onAddReference(m.images)} title="添加为参考图">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                参考图
+              </button>
+            )}
+            <button className="msg-del-btn" onClick={() => onDelete(m.id)} title="删除此消息">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              删除
+            </button>
           </div>
-        )}
-        {m.status === 'error' && <div className="gen-error">⚠ 生成失败：{m.text}</div>}
-        {m.text && m.status === 'done' && <div className="ai-chat-text" style={{ whiteSpace: 'pre-wrap' }}>{m.text}</div>}
-        {m.images?.filter(Boolean).map((img, i) => (
-          <RevealImage key={i} src={img} ratio={ar} animate={shouldAnimate} />
-        ))}
-        {m.videos?.filter(Boolean).map((vid, i) => (
-          <RevealVideo key={i} src={vid} ratio={ar} />
-        ))}
-        {m.status === 'done' && m.images?.filter(Boolean).length === 0 && m.videos?.filter(Boolean).length === 0 && !m.text && (
-          <div className="gen-error">（媒体数据未保留，仅保存了会话记录）</div>
         )}
       </div>
-      {hovered && onDelete && m.status !== 'loading' && (
-        <button className="msg-del-btn msg-del-btn-ai" onClick={() => onDelete(m.id)} title="删除此消息">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/></svg>
-        </button>
-      )}
-
     </div>
   )
 }

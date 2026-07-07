@@ -1,4 +1,5 @@
-import { getBuiltinConfig, resolveModel, getKeyIndex, setKeyIndex, isQuotaError, DEFAULT_MODEL } from './builtin.js'
+import { getBuiltinConfig, resolveModel, randomKeyIndex, isQuotaError, DEFAULT_MODEL } from './builtin.js'
+import { SYSTEM_PROMPT } from './systemPrompt.js'
 import { useStore } from '../store.js'
 
 // ─────────────────────────────────────────────
@@ -295,7 +296,7 @@ export async function generateImage({ prompt, size, refs = [], model }, signal) 
   if (total === 0) {
     throw new Error('API Key 不能为空，请在设置中配置。')
   }
-  const start = getKeyIndex(ch.providerId, total)
+  const start = randomKeyIndex(total)
   let lastErr
   for (let i = 0; i < total; i++) {
     const idx = (start + i) % total
@@ -303,7 +304,6 @@ export async function generateImage({ prompt, size, refs = [], model }, signal) 
       const json = await apiPost(joinUrl(ch.baseUrl, ch.imagePath), ch.keys[idx], body, signal)
       const img = extractImage(json)
       if (!img) throw new Error('响应中未找到图片: ' + JSON.stringify(json).slice(0, 200))
-      if (idx !== start && ch.providerId !== 'custom') setKeyIndex(ch.providerId, idx)
       return img
     } catch (err) {
       if (err?.name === 'AbortError') throw err
@@ -327,8 +327,10 @@ export async function generateVideo({ prompt, model, refImage }, signal) {
   }
 
   const url = joinUrl(ch.baseUrl, ch.videoPath || '/v1/videos')
+  const start = randomKeyIndex(total)
   let lastErr
-  for (let idx = 0; idx < total; idx++) {
+  for (let i = 0; i < total; i++) {
+    const idx = (start + i) % total
     try {
       const apiKey = ch.keys[idx]
       let json = await apiPost(url, apiKey, body, signal)
@@ -358,7 +360,7 @@ export async function generateVideo({ prompt, model, refImage }, signal) {
     } catch (err) {
       if (err?.name === 'AbortError') throw err
       lastErr = err
-      if (isQuotaError(err) && idx < total - 1) continue
+      if (isQuotaError(err) && i < total - 1) continue
       throw err
     }
   }
@@ -368,9 +370,15 @@ export async function generateVideo({ prompt, model, refImage }, signal) {
 export async function generateChat({ messages, model }, signal) {
   const presets = useStore.getState().presets
   const ch = resolveModelWithPresets(model, presets)
+  // 注入全局系统提示词（所有 AI 通用，含自定义）
+  // 仅当用户消息中没有 system 角色时注入，避免覆盖用户显式设定的 system
+  const hasSystem = messages?.some((m) => m.role === 'system')
+  const finalMessages = (hasSystem || !SYSTEM_PROMPT)
+    ? messages
+    : [{ role: 'system', content: SYSTEM_PROMPT }, ...messages]
   const body = {
     model: ch.apiModel,
-    messages
+    messages: finalMessages
   }
   const url = joinUrl(ch.baseUrl, ch.chatPath || '/v1/chat/completions')
   const total = ch.keys.length
@@ -379,7 +387,9 @@ export async function generateChat({ messages, model }, signal) {
   }
 
   let lastErr
-  for (let idx = 0; idx < total; idx++) {
+  const start = randomKeyIndex(total)
+  for (let i = 0; i < total; i++) {
+    const idx = (start + i) % total
     try {
       const apiKey = ch.keys[idx]
       const json = await apiPost(url, apiKey, body, signal)
@@ -391,7 +401,7 @@ export async function generateChat({ messages, model }, signal) {
     } catch (err) {
       if (err?.name === 'AbortError') throw err
       lastErr = err
-      if (isQuotaError(err) && idx < total - 1) continue
+      if (isQuotaError(err) && i < total - 1) continue
       throw err
     }
   }
