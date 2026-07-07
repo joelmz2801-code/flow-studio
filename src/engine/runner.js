@@ -370,12 +370,16 @@ export async function generateVideo({ prompt, model, refImage }, signal) {
 export async function generateChat({ messages, model }, signal) {
   const presets = useStore.getState().presets
   const ch = resolveModelWithPresets(model, presets)
-  // 注入全局系统提示词（所有 AI 通用，含自定义）
-  // 仅当用户消息中没有 system 角色时注入，避免覆盖用户显式设定的 system
+  // 注入全局系统提示词 + 用户自定义提示词（按顺序拼接）
   const hasSystem = messages?.some((m) => m.role === 'system')
-  const finalMessages = (hasSystem || !SYSTEM_PROMPT)
+  const customParts = (useStore.getState().customPrompts || [])
+    .filter((p) => p && p.enabled && (p.text || '').trim())
+    .map((p) => (p.name ? `[${p.name}]\n${p.text}` : p.text))
+  const basePart = SYSTEM_PROMPT
+  const sysContent = [basePart, ...customParts].filter(Boolean).join('\n\n')
+  const finalMessages = (hasSystem || !sysContent)
     ? messages
-    : [{ role: 'system', content: SYSTEM_PROMPT }, ...messages]
+    : [{ role: 'system', content: sysContent }, ...messages]
   const body = {
     model: ch.apiModel,
     messages: finalMessages

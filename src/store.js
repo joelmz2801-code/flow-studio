@@ -42,6 +42,10 @@ function presetKey() {
   return _syncUserId ? `flowstudio.presets.v1:${_syncUserId}` : 'flowstudio.presets.v1'
 }
 
+function customPromptsKey() {
+  return _syncUserId ? `flowstudio.customPrompts.v1:${_syncUserId}` : 'flowstudio.customPrompts.v1'
+}
+
 // ── API 预设 ─────────────────────────────────────
 export const PRESET_FIELDS = ['baseUrl', 'apiKey', 'imageModel', 'videoModel', 'imagePath', 'videoPath']
 
@@ -117,6 +121,24 @@ function persistChats(chats) {
 const initialPresets = loadPresetsFromStorage(presetKey())
 const initialChats = loadChatsFromStorage(chatKey())
 
+// ── 自定义系统提示词 ─────────────────────────────
+function loadCustomPromptsFromStorage(key) {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw) {
+      const arr = JSON.parse(raw)
+      if (Array.isArray(arr)) return arr
+    }
+  } catch { /* ignore */ }
+  return []
+}
+
+function persistCustomPrompts(prompts) {
+  try { localStorage.setItem(customPromptsKey(), JSON.stringify(prompts)) } catch { /* ignore */ }
+}
+
+const initialCustomPrompts = loadCustomPromptsFromStorage(customPromptsKey())
+
 const initialNodes = [
   { id: 'ref1', type: 'refImage', position: { x: 40, y: 480 }, data: {} },
   { id: 'ref2', type: 'refImage', position: { x: 40, y: 700 }, data: {} },
@@ -149,6 +171,7 @@ export const useStore = create((set, get) => ({
   settingsTab: 'api',
 
   chats: initialChats,
+  customPrompts: initialCustomPrompts,
   activeView: initialChats.length ? { type: 'chat', id: initialChats[0].id } : { type: 'chat', id: null },
   sidebarCollapsed: false,
   mobileNavOpen: false,
@@ -305,6 +328,35 @@ export const useStore = create((set, get) => ({
       ),
     })
     deletePresetFromCloud(id, _syncUserId)
+  },
+
+  // ── 自定义提示词 CRUD ──
+  addCustomPrompt: () => {
+    const prompt = { id: `cp${Date.now()}`, name: '', text: '', enabled: true }
+    const list = [...get().customPrompts, prompt]
+    persistCustomPrompts(list)
+    set({ customPrompts: list })
+    return prompt.id
+  },
+  updateCustomPrompt: (id, patch) => {
+    const list = get().customPrompts.map((p) => (p.id === id ? { ...p, ...patch } : p))
+    persistCustomPrompts(list)
+    set({ customPrompts: list })
+  },
+  removeCustomPrompt: (id) => {
+    const list = get().customPrompts.filter((p) => p.id !== id)
+    persistCustomPrompts(list)
+    set({ customPrompts: list })
+  },
+  moveCustomPrompt: (id, direction) => {
+    const list = [...get().customPrompts]
+    const idx = list.findIndex((p) => p.id === id)
+    if (idx < 0) return
+    const target = direction === 'up' ? idx - 1 : idx + 1
+    if (target < 0 || target >= list.length) return
+    ;[list[idx], list[target]] = [list[target], list[idx]]
+    persistCustomPrompts(list)
+    set({ customPrompts: list })
   },
 }))
 

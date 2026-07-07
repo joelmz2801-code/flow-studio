@@ -16,7 +16,11 @@ const EMPTY = {
 
 
 export default function SettingsModal() {
-  const { settingsOpen, setSettingsOpen, settingsTab, setSettingsTab, presets, addPreset, updatePreset, removePreset } = useStore()
+  const {
+    settingsOpen, setSettingsOpen, settingsTab, setSettingsTab,
+    presets, addPreset, updatePreset, removePreset,
+    customPrompts, addCustomPrompt, updateCustomPrompt, removeCustomPrompt, moveCustomPrompt,
+  } = useStore()
   const { user, signOut, isAuthEnabled } = useAuth()
   const [activeId, setActiveId] = useState(presets[0]?.id || null)
   const [draft, setDraft] = useState(null)
@@ -275,6 +279,13 @@ export default function SettingsModal() {
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 7h7v7"/><path d="M21 7l-9 9"/><path d="M3 17v-4a4 4 0 0 1 4-4h7" strokeLinecap="round"/></svg>
             API 设置
+          </button>
+          <button
+            className={`settings-tab ${tab === 'prompts' ? 'active' : ''}`}
+            onClick={() => setSettingsTab('prompts')}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            提示词
           </button>
         </div>
 
@@ -557,6 +568,93 @@ export default function SettingsModal() {
                 )}
               </div>
             </>
+          )}
+
+          {/* ────────────── 提示词管理界面 ────────────── */}
+          {tab === 'prompts' && (
+            <div className="settings-pane prompts-pane">
+              <div className="settings-section">
+                <div className="settings-section-header">
+                  <div className="settings-section-icon green">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  </div>
+                  <div>
+                    <div className="settings-section-title">自定义系统提示词</div>
+                    <div className="settings-section-desc">每条独立管理，按顺序拼接到 system message。可无上限添加，字数无限制</div>
+                  </div>
+                  <div className="model-header-actions" style={{ marginLeft: 'auto' }}>
+                    <button
+                      className="model-top-btn add-btn"
+                      onClick={() => addCustomPrompt()}
+                    >
+                      + 新增提示词
+                    </button>
+                  </div>
+                </div>
+
+                {customPrompts.length === 0 ? (
+                  <div className="empty-hint">暂无自定义提示词，点击右上角「新增提示词」开始添加</div>
+                ) : (
+                  <div className="custom-prompts-list">
+                    {customPrompts.map((p, i) => (
+                      <div key={p.id} className={`custom-prompt-item ${p.enabled ? 'is-enabled' : 'is-disabled'}`}>
+                        <div className="custom-prompt-toolbar">
+                          <label className="custom-prompt-toggle" title={p.enabled ? '已启用' : '已禁用'}>
+                            <input
+                              type="checkbox"
+                              checked={!!p.enabled}
+                              onChange={(e) => updateCustomPrompt(p.id, { enabled: e.target.checked })}
+                            />
+                            <span>{p.enabled ? '启用' : '禁用'}</span>
+                          </label>
+                          <input
+                            type="text"
+                            className="custom-prompt-name"
+                            placeholder={`提示词 ${i + 1} 名称（可选）`}
+                            value={p.name || ''}
+                            onChange={(e) => updateCustomPrompt(p.id, { name: e.target.value })}
+                          />
+                          <div className="custom-prompt-actions">
+                            <button
+                              className="model-act-btn"
+                              onClick={() => moveCustomPrompt(p.id, 'up')}
+                              disabled={i === 0}
+                              title="上移"
+                            >↑</button>
+                            <button
+                              className="model-act-btn"
+                              onClick={() => moveCustomPrompt(p.id, 'down')}
+                              disabled={i === customPrompts.length - 1}
+                              title="下移"
+                            >↓</button>
+                            <button
+                              className="model-act-btn danger"
+                              onClick={() => {
+                                if (confirm(`确认删除第 ${i + 1} 条提示词？`)) removeCustomPrompt(p.id)
+                              }}
+                              title="删除"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/></svg>
+                            </button>
+                          </div>
+                        </div>
+                        <textarea
+                          className="custom-prompt-textarea"
+                          placeholder="在此输入提示词内容，无字数限制…"
+                          value={p.text || ''}
+                          onChange={(e) => updateCustomPrompt(p.id, { text: e.target.value })}
+                          rows={5}
+                        />
+                        <div className="custom-prompt-meta">
+                          <span>{(p.text || '').length} 字符</span>
+                          <span>顺序：{i + 1} / {customPrompts.length}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
