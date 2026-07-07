@@ -596,6 +596,12 @@ export default function SettingsModal() {
                   <div className="empty-hint">暂无自定义提示词，点击右上角「新增提示词」开始添加</div>
                 ) : (
                   <div className="custom-prompts-list">
+                    <div className="custom-prompts-summary">
+                      当前共 {customPrompts.length} 条提示词，
+                      已启用 {customPrompts.filter(p => p.enabled).length} 条，
+                      总字符数 {customPrompts.reduce((sum, p) => sum + (p.text || '').length, 0)}。
+                      这些提示词将自动注入到所有 chat 模型的 system 消息。
+                    </div>
                     {customPrompts.map((p, i) => (
                       <div key={p.id} className={`custom-prompt-item ${p.enabled ? 'is-enabled' : 'is-disabled'}`}>
                         <div className="custom-prompt-toolbar">
