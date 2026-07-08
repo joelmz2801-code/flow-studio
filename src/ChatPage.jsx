@@ -722,14 +722,13 @@ const revealedSet = new Set()
 
 function Message({ m, onDelete, onAddReference, onCopy, onRegenerate }) {
   const shouldAnimate = m.status === 'done' && m.images?.filter(Boolean).length > 0 && !revealedSet.has(m.id)
-  const [hovered, setHovered] = useState(false)
 
   if (shouldAnimate) {
     revealedSet.add(m.id)
   }
   if (m.role === 'user') {
     return (
-      <div className="msg msg-user" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+      <div className="msg msg-user">
         <div className="msg-content">
           <div className="bubble bubble-user">
             {m.refs?.length > 0 && (
@@ -742,24 +741,21 @@ function Message({ m, onDelete, onAddReference, onCopy, onRegenerate }) {
               <div className="msg-meta">{m.meta.map((t) => <span key={t}>{t}</span>)}</div>
             )}
           </div>
-          {hovered && m.status !== 'loading' && (
+          {m.status !== 'loading' && (
             <div className="msg-foot">
               {onCopy && (
-                <button className="msg-act-btn" onClick={() => onCopy(m)} title="复制消息内容">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  复制
+                <button className="msg-icon-btn" onClick={() => onCopy(m)} title="复制消息内容">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 </button>
               )}
               {onRegenerate && (
-                <button className="msg-act-btn" onClick={() => onRegenerate(m)} title="使用同一条指令和参考图重新生成">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                  重新生成
+                <button className="msg-icon-btn" onClick={() => onRegenerate(m)} title="使用同一条指令和参考图重新生成">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                 </button>
               )}
               {onDelete && (
-                <button className="msg-del-btn" onClick={() => onDelete(m.id)} title="删除此消息">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                  删除
+                <button className="msg-icon-btn msg-del-icon" onClick={() => onDelete(m.id)} title="删除此消息">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                 </button>
               )}
             </div>
@@ -771,7 +767,7 @@ function Message({ m, onDelete, onAddReference, onCopy, onRegenerate }) {
 
   const ar = m.ratio ? `${m.ratio.w} / ${m.ratio.h}` : '1 / 1'
   return (
-    <div className="msg msg-ai" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+    <div className="msg msg-ai">
       <div className="ai-avatar">
         <Logo size={28} />
       </div>
@@ -805,24 +801,21 @@ function Message({ m, onDelete, onAddReference, onCopy, onRegenerate }) {
             <div className="gen-error">（媒体数据未保留，仅保存了会话记录）</div>
           )}
         </div>
-        {hovered && m.status !== 'loading' && (
+        {m.status !== 'loading' && (
           <div className="msg-foot">
             {m.images?.filter(Boolean).length > 0 && onAddReference && (
-              <button className="msg-act-btn" onClick={() => onAddReference(m.images)} title="添加为参考图">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
-                参考图
+              <button className="msg-icon-btn" onClick={() => onAddReference(m.images)} title="添加为参考图">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
               </button>
             )}
             {onCopy && (
-              <button className="msg-act-btn" onClick={() => onCopy(m)} title="复制消息内容">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                复制
+              <button className="msg-icon-btn" onClick={() => onCopy(m)} title="复制消息内容">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               </button>
             )}
             {onDelete && (
-              <button className="msg-del-btn" onClick={() => onDelete(m.id)} title="删除此消息">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                删除
+              <button className="msg-icon-btn msg-del-icon" onClick={() => onDelete(m.id)} title="删除此消息">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
               </button>
             )}
           </div>
