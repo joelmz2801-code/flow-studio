@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useStore, forceFlushPendingSaves } from './store.js'
 import { useAuth } from './useAuth.js'
 import { testApiConnection, fetchModelsList } from './engine/runner.js'
@@ -92,6 +92,7 @@ export default function SettingsModal() {
     setDraft({ ...p, models: p.models || [] })
     setShowKey(false)
     setModelSearchQuery('')
+    lastSavedRef.current = JSON.stringify({ ...p, models: p.models || [] })
   }
 
   const create = () => {
@@ -102,6 +103,7 @@ export default function SettingsModal() {
       const last = list[list.length - 1]
       setActiveId(last.id)
       setDraft({ ...last, models: last.models || [] })
+      lastSavedRef.current = JSON.stringify({ ...last, models: last.models || [] })
     }, 0)
   }
 
@@ -109,6 +111,18 @@ export default function SettingsModal() {
     if (!draft || !activeId) return
     updatePreset(activeId, draft)
   }
+
+  // ── 自动保存：draft 一旦变化且与已保存快照不同，立即持久化 ──
+  const lastSavedRef = useRef(null)
+  useEffect(() => {
+    if (!draft || !activeId) return
+    if (!settingsOpen) return
+    const snapshot = JSON.stringify({ ...draft, models: draft.models || [] })
+    if (lastSavedRef.current === snapshot) return
+    lastSavedRef.current = snapshot
+    updatePreset(activeId, draft)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, activeId, settingsOpen])
 
   const remove = () => {
     if (!activeId) return
@@ -724,9 +738,7 @@ export default function SettingsModal() {
                     <div className="form-actions" style={{ marginTop: '16px' }}>
                       <button className="btn-danger" onClick={remove}>删除预设</button>
                       <div className="spacer" />
-                      <button className="btn-primary" onClick={save} disabled={!dirty}>
-                        {dirty ? '保存修改' : '已保存 ✓'}
-                      </button>
+                      <span className="auto-save-hint">✓ 已自动保存</span>
                     </div>
                   </>
                 )}

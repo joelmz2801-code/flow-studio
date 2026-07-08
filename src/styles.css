@@ -1996,6 +1996,14 @@ textarea { resize: vertical; line-height: 1.5; }
 .api-model-pill.active-fav { color: #ec4899; border-color: #fbcfe8; background: #fce7f3; }
 .api-model-pill.danger { color: #ef4444; }
 .api-model-pill.danger:hover { background: #fef2f2; border-color: #ef4444; color: #ef4444; }
+
+/* ── 自动保存提示 ── */
+.auto-save-hint {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 500; color: #22c55e;
+  background: #e6f9ed; border: 1px solid #b7e4c7;
+  padding: 6px 12px; border-radius: 999px;
+}
 .model-type-badge.image { background: #e8f0fe; color: #1a73e8; }
 .model-type-badge.video { background: #f3e8ff; color: #7c4dff; }
 .model-type-badge.chat  { background: #e6f4ea; color: #188038; }
