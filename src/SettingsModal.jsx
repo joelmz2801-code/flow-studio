@@ -89,6 +89,19 @@ export default function SettingsModal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen])
 
+  // ── 自动保存：draft 一旦变化且与已保存快照不同，立即持久化 ──
+  // ⚠️ 必须在早期 return 之前声明 hooks，否则 React 会抛 #310
+  const lastSavedRef = useRef(null)
+  useEffect(() => {
+    if (!draft || !activeId) return
+    if (!settingsOpen) return
+    const snapshot = JSON.stringify({ ...draft, models: draft.models || [] })
+    if (lastSavedRef.current === snapshot) return
+    lastSavedRef.current = snapshot
+    updatePreset(activeId, draft)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, activeId, settingsOpen])
+
   if (!settingsOpen && !pickerOpen) return null
 
   const select = (p) => {
@@ -115,18 +128,6 @@ export default function SettingsModal() {
     if (!draft || !activeId) return
     updatePreset(activeId, draft)
   }
-
-  // ── 自动保存：draft 一旦变化且与已保存快照不同，立即持久化 ──
-  const lastSavedRef = useRef(null)
-  useEffect(() => {
-    if (!draft || !activeId) return
-    if (!settingsOpen) return
-    const snapshot = JSON.stringify({ ...draft, models: draft.models || [] })
-    if (lastSavedRef.current === snapshot) return
-    lastSavedRef.current = snapshot
-    updatePreset(activeId, draft)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, activeId, settingsOpen])
 
   const remove = () => {
     if (!activeId) return
@@ -568,7 +569,7 @@ export default function SettingsModal() {
                     <div className="api-field-block">
                       <div className="api-field-label-row">
                         <span className="api-field-label">API 密钥</span>
-                        <button className="icon-link-btn" title="复制当前密钥" onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(draft.apiKey || ''); setToast('已复制') }}>
+                        <button className="icon-link-btn" title="复制当前密钥" onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(draft.apiKey || ''); showNotification('success', '已复制'); }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg>
                         </button>
                       </div>
