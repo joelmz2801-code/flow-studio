@@ -18,14 +18,11 @@ const _P = {
     ],
   },
   ag: {
-    u: 'aHR0cHM6Ly9hcGlodWIuYWduZXMtYWkuY29t',
-    k: [
-      'c2stN1I1NGFObUYybjdEdXVqUU5XS3lwRnZINUQ0MmNpeWsxaFF6dTRxMlIwNU1HbHRm',
-      'c2stdGd1Tm42b2dHRUtNd2NlSjk2U1dFc1NVdDZ1U1pOczltTzBOM0xsRDZFaTRHa2wz',
-      'c2stSGkyc3JBRXM3dGJGN0lKdFVQOW1TcVk1WTdCdmJYQTVBZGZ6TnpsT1JjcXdYSDRH',
-      'c2stTFdXbkJLUG9GSTRZV3lJajJOVEVkZzVEa3V4em4zZXVuMzhZREFoUzhXbWRaN1dh',
-      'c2stQk5uRGZwNnZwZDFPb2RONDNIbllTb2RXS1AyYzBQQXJaaDZJYWdsSHJXdGxtdHQ3',
-    ],
+    u: 'aHR0cHM6Ly9qb2VsLWFwaS1rZXktcHJveHkuam9lbHRpbmcwMi53b3JrZXJzLmRldi9hZ25lc2Fp',
+    k: ['eHVXako4T1pOTVVWU1gtRjA1c2hJSk41c0hpN0JlX1NrVFROdXFLajFKTQ=='],
+    imagePath: '/images/generations',
+    videoPath: '/videos',
+    chatPath: '/chat/completions',
   },
   co: {
     // Cohere 通道：Command 系列文本对话模型（OpenAI 兼容接口）
@@ -62,9 +59,9 @@ export function resolveModel(modelId) {
     baseUrl: _d(p.u),
     keys: p.k.map(_d),
     apiModel: m ? m.apiModel : modelId,
-    imagePath: '/v1/images/generations',
-    videoPath: '/v1/videos',
-    chatPath: m?.chatPath || '/v1/chat/completions',
+    imagePath: p.imagePath || '/v1/images/generations',
+    videoPath: p.videoPath || '/v1/videos',
+    chatPath: m?.chatPath || p.chatPath || '/v1/chat/completions',
     type: m ? m.type : 'image'
   }
 }
@@ -101,7 +98,7 @@ export function getBuiltinConfig() {
     apiKey: r.keys[idx],
     imageModel: r.apiModel,
     videoModel: 'agnes-video-v2.0',
-    imagePath: '/v1/images/generations',
-    videoPath: '/v1/videos',
+    imagePath: r.imagePath,
+    videoPath: r.videoPath,
   }
 }

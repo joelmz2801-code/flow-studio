@@ -110,8 +110,17 @@ export default function ChatPage({ chatId }) {
 
   const presets = useStore((s) => s.presets)
 
+  // 先收集自定义预设中可见模型的 ID，自定义模型优先（覆盖同 ID 的内置模型）
+  const _customIds = new Set()
+  presets.forEach((p) => {
+    if (p.models && Array.isArray(p.models)) {
+      p.models.forEach((m) => { if (m.visible) _customIds.add(m.id) })
+    }
+  })
+
   const allVisibleModels = []
   BUILTIN_MODELS.forEach((b) => {
+    if (_customIds.has(b.id)) return  // 自定义预设中有同 ID → 跳过内置
     allVisibleModels.push({
       id: b.id,
       label: b.label,

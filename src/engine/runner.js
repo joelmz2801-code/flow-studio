@@ -292,11 +292,7 @@ export function resolveModelWithPresets(modelId, presets) {
     }
   }
   const builtin = resolveModel(modelId)
-  return {
-    ...builtin,
-    videoPath: '/v1/videos',
-    type: 'image'
-  }
+  return { ...builtin }
 }
 
 async function urlToDataUri(url, signal) {
