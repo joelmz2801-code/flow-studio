@@ -129,7 +129,72 @@ export async function deletePresetFromCloud(presetId, userId) {
   }
 }
 
-export function subscribeToChanges(userId, onChatsChange, onPresetsChange) {
+// ── 自定义提示词云端同步 ──────────────────────────
+// 数据库行 ↔ 前端对象转换
+function rowToCustomPrompt(row) {
+  if (!row) return row
+  return {
+    id: row.id,
+    name: row.name || '',
+    text: row.text || '',
+    enabled: row.enabled !== false,
+  }
+}
+
+function customPromptToRow(p, userId, sortOrder) {
+  return {
+    id: p.id,
+    user_id: userId,
+    name: p.name || '',
+    text: p.text || '',
+    enabled: p.enabled !== false,
+    sort_order: typeof sortOrder === 'number' ? sortOrder : 0,
+  }
+}
+
+export async function loadCustomPromptsFromCloud(userId) {
+  if (!supabase || !userId) return null
+  try {
+    const { data, error } = await supabase
+      .from('custom_prompts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('sort_order', { ascending: true })
+    if (error) throw error
+    return (data || []).map(rowToCustomPrompt)
+  } catch (err) {
+    console.warn('[sync] 加载自定义提示词失败:', err.message)
+    return null
+  }
+}
+
+export async function saveCustomPromptToCloud(prompt, userId, sortOrder) {
+  if (!supabase || !userId) return
+  try {
+    const { error } = await supabase
+      .from('custom_prompts')
+      .upsert(customPromptToRow(prompt, userId, sortOrder), { onConflict: 'id' })
+    if (error) throw error
+  } catch (err) {
+    console.warn('[sync] 保存自定义提示词失败:', err.message)
+  }
+}
+
+export async function deleteCustomPromptFromCloud(promptId, userId) {
+  if (!supabase || !userId) return
+  try {
+    const { error } = await supabase
+      .from('custom_prompts')
+      .delete()
+      .eq('id', promptId)
+      .eq('user_id', userId)
+    if (error) throw error
+  } catch (err) {
+    console.warn('[sync] 删除自定义提示词失败:', err.message)
+  }
+}
+
+export function subscribeToChanges(userId, onChatsChange, onPresetsChange, onPromptsChange) {
   if (!supabase || !userId) return () => {}
 
   const channel = supabase
@@ -141,6 +206,10 @@ export function subscribeToChanges(userId, onChatsChange, onPresetsChange) {
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'presets', filter: `user_id=eq.${userId}` },
       (payload) => { onPresetsChange(payload) }
+    )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'custom_prompts', filter: `user_id=eq.${userId}` },
+      (payload) => { onPromptsChange && onPromptsChange(payload) }
     )
     .subscribe()
 

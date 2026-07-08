@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react'
-import { loadChatsFromCloud, saveChatToCloud, deleteChatFromCloud, loadPresetsFromCloud, savePresetToCloud, deletePresetFromCloud } from './lib/sync.js'
+import { loadChatsFromCloud, saveChatToCloud, deleteChatFromCloud, loadPresetsFromCloud, savePresetToCloud, deletePresetFromCloud, loadCustomPromptsFromCloud, saveCustomPromptToCloud, deleteCustomPromptFromCloud } from './lib/sync.js'
 
 let counter = 100
 export const nextId = () => `n${counter++}`
@@ -336,17 +336,28 @@ export const useStore = create((set, get) => ({
     const list = [...get().customPrompts, prompt]
     persistCustomPrompts(list)
     set({ customPrompts: list })
+    if (_syncUserId) {
+      saveCustomPromptToCloud(prompt, _syncUserId, list.length - 1)
+    }
     return prompt.id
   },
   updateCustomPrompt: (id, patch) => {
     const list = get().customPrompts.map((p) => (p.id === id ? { ...p, ...patch } : p))
     persistCustomPrompts(list)
     set({ customPrompts: list })
+    if (_syncUserId) {
+      const idx = list.findIndex((p) => p.id === id)
+      const target = list[idx]
+      if (target) saveCustomPromptToCloud(target, _syncUserId, idx)
+    }
   },
   removeCustomPrompt: (id) => {
     const list = get().customPrompts.filter((p) => p.id !== id)
     persistCustomPrompts(list)
     set({ customPrompts: list })
+    if (_syncUserId) {
+      deleteCustomPromptFromCloud(id, _syncUserId)
+    }
   },
   moveCustomPrompt: (id, direction) => {
     const list = [...get().customPrompts]
@@ -357,6 +368,11 @@ export const useStore = create((set, get) => ({
     ;[list[idx], list[target]] = [list[target], list[idx]]
     persistCustomPrompts(list)
     set({ customPrompts: list })
+    if (_syncUserId) {
+      // 顺序变了，重新把这两条写入云端（更新 sort_order）
+      saveCustomPromptToCloud(list[idx], _syncUserId, idx)
+      saveCustomPromptToCloud(list[target], _syncUserId, target)
+    }
   },
 }))
 
@@ -369,17 +385,20 @@ export async function syncFromCloud(userId) {
   useStore.setState({
     chats: [],
     presets: DEFAULT_PRESETS,
+    customPrompts: [],
     activeView: { type: 'chat', id: null },
   })
 
-  const [cloudChats, cloudPresets] = await Promise.all([
+  const [cloudChats, cloudPresets, cloudPrompts] = await Promise.all([
     loadChatsFromCloud(userId),
     loadPresetsFromCloud(userId),
+    loadCustomPromptsFromCloud(userId),
   ])
 
   // 加载该用户本地缓存
   const localChats = loadChatsFromStorage(chatKey())
   const localPresets = loadPresetsFromStorage(presetKey())
+  const localPrompts = loadCustomPromptsFromStorage(customPromptsKey())
 
   // 云端有数据 → 以云端为准（云端是权威源）
   if (cloudChats !== null) {
@@ -403,6 +422,16 @@ export async function syncFromCloud(userId) {
       for (const preset of localPresets) savePresetToCloud(preset, userId)
     }
   }
+
+  if (cloudPrompts !== null) {
+    const prompts = cloudPrompts.length > 0 ? cloudPrompts : localPrompts
+    persistCustomPrompts(prompts)
+    useStore.setState({ customPrompts: prompts })
+    // 云端为空但本地有数据 → 首次登录，把本地提示词全量上传
+    if (cloudPrompts.length === 0 && localPrompts.length > 0) {
+      localPrompts.forEach((p, idx) => saveCustomPromptToCloud(p, userId, idx))
+    }
+  }
 }
 
 export function clearUserData() {
@@ -412,9 +441,11 @@ export function clearUserData() {
 
   const chats = loadChatsFromStorage(chatKey())
   const presets = loadPresetsFromStorage(presetKey())
+  const customPrompts = loadCustomPromptsFromStorage(customPromptsKey())
   useStore.setState({
     chats,
     presets,
+    customPrompts,
     activeView: chats.length ? { type: 'chat', id: chats[0].id } : { type: 'chat', id: null },
   })
 }
@@ -478,6 +509,33 @@ export function applyRealtimePresetChange(payload) {
 
   persistPresets(presets)
   useStore.setState({ presets })
+}
+
+export function applyRealtimeCustomPromptChange(payload) {
+  const { eventType, new: newRow, old: oldRow } = payload
+  const store = useStore.getState()
+  let prompts
+
+  if (eventType === 'DELETE') {
+    prompts = store.customPrompts.filter(p => p.id !== oldRow.id)
+  } else {
+    const prompt = {
+      id: newRow.id,
+      name: newRow.name || '',
+      text: newRow.text || '',
+      enabled: newRow.enabled !== false,
+    }
+    const idx = store.customPrompts.findIndex(p => p.id === prompt.id)
+    if (idx >= 0) {
+      prompts = [...store.customPrompts]
+      prompts[idx] = prompt
+    } else {
+      prompts = [...store.customPrompts, prompt]
+    }
+  }
+
+  persistCustomPrompts(prompts)
+  useStore.setState({ customPrompts: prompts })
 }
 
 export function setSyncUserId(userId) {

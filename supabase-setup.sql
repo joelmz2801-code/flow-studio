@@ -71,7 +71,49 @@ CREATE POLICY "用户只能删除自己的预设"
 CREATE INDEX IF NOT EXISTS idx_presets_user_id ON public.presets(user_id);
 
 -- ========================================
--- 3. 开启实时订阅（可选，用于跨设备实时同步）
+-- 3. 自定义提示词表
+-- ========================================
+CREATE TABLE IF NOT EXISTS public.custom_prompts (
+  id TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL DEFAULT '',
+  text TEXT NOT NULL DEFAULT '',
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.custom_prompts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "用户只能查看自己的提示词"
+  ON public.custom_prompts FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "用户只能插入自己的提示词"
+  ON public.custom_prompts FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "用户只能更新自己的提示词"
+  ON public.custom_prompts FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "用户只能删除自己的提示词"
+  ON public.custom_prompts FOR DELETE
+  USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_custom_prompts_user_id ON public.custom_prompts(user_id);
+
+-- ========================================
+-- 4. 开启实时订阅（可选，用于跨设备实时同步）
 -- ========================================
 ALTER PUBLICATION supabase_realtime ADD TABLE public.chats;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.presets;
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.custom_prompts;
+  EXCEPTION WHEN duplicate_object THEN
+    -- 已经在 publication 中，忽略
+    NULL;
+  END;
+END $$;

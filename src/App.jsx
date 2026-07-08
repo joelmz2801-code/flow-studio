@@ -24,6 +24,7 @@ export default function App() {
     const unsub = subscribeToChanges(user.id,
       (payload) => { applyRealtimeChatChange(payload) },
       (payload) => { applyRealtimePresetChange(payload) },
+      (payload) => { applyRealtimeCustomPromptChange(payload) },
     )
     return unsub
   }, [user?.id])
