@@ -1804,6 +1804,17 @@ textarea { resize: vertical; line-height: 1.5; }
 .model-type-badge.video { background: #f3e8ff; color: #7c4dff; }
 .model-type-badge.chat  { background: #e6f4ea; color: #188038; }
 
+/* ── Model type select dropdown ── */
+.model-type-select {
+  font-family: inherit; font-size: 11px; font-weight: 600;
+  padding: 3px 6px; border-radius: 6px;
+  border: 1px solid var(--border); background: #fff;
+  color: var(--text); cursor: pointer; outline: none;
+  flex-shrink: 0; line-height: 1.4;
+}
+.model-type-select:hover { border-color: var(--blue); }
+.model-type-select:focus { border-color: var(--blue); }
+
 /* ── Clean SVG action buttons (replacing emoji) ── */
 .model-act-btn {
   width: 28px; height: 28px; border-radius: 7px;

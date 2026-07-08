@@ -158,12 +158,11 @@ export default function SettingsModal() {
     })
   }
 
-  const toggleModelType = (modelId) => {
-    const cycle = { image: 'video', video: 'chat', chat: 'image' }
+  const setModelType = (modelId, newType) => {
     setDraft((d) => ({
       ...d,
       models: (d.models || []).map((m) =>
-        m.id === modelId ? { ...m, type: cycle[m.type || 'image'] || 'image' } : m
+        m.id === modelId ? { ...m, type: newType } : m
       )
     }))
   }
@@ -609,59 +608,50 @@ export default function SettingsModal() {
                       />
 
                       <div className="settings-model-list">
-                        {groupedByType.length === 0 ? (
+                        {filteredModels.length === 0 ? (
                           <div className="no-models-hint">无可用模型，点击"获取模型列表"加载</div>
                         ) : (
-                          groupedByType.map((group) => (
-                            <div key={group.type} className="model-type-group">
-                              <div className="model-type-group-header">
-                                <span>{group.label}</span>
-                                <span className="model-type-group-count">
-                                  {group.items.filter(m => m.visible).length}/{group.items.length}
-                                </span>
+                          filteredModels.map((m) => (
+                            <div key={m.id} className={`settings-model-row ${m.visible ? 'is-visible' : 'is-hidden'}`}>
+                              <div className="settings-model-info">
+                                <span className="settings-model-name-text" title={m.id}>{m.id}</span>
                               </div>
-                              <div className="model-type-group-body">
-                                {group.items.map((m) => (
-                                  <div key={m.id} className={`settings-model-row ${m.visible ? 'is-visible' : 'is-hidden'}`}>
-                                    <div className="settings-model-info">
-                                      <span className="settings-model-name-text" title={m.id}>{m.id}</span>
-                                    </div>
-                                    <div className="settings-model-actions">
-                                      <button
-                                        className={`model-act-btn ${m.visible ? 'active-vis' : ''}`}
-                                        onClick={(e) => { e.preventDefault(); toggleModelVisible(m.id); }}
-                                        title={m.visible ? '已显示 (在对话框中可见)' : '已隐藏 (在对话框中不可见)'}
-                                      >
-                                        {m.visible ? (
-                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-                                        ) : (
-                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
-                                        )}
-                                      </button>
-                                      <button
-                                        className={`model-act-btn ${m.isDefault ? 'active-def' : ''}`}
-                                        onClick={(e) => { e.preventDefault(); toggleModelDefault(m.id); }}
-                                        title={m.isDefault ? '已设为默认' : '设为默认'}
-                                      >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                                      </button>
-                                      <button
-                                        className="model-act-btn"
-                                        onClick={(e) => { e.preventDefault(); toggleModelType(m.id); }}
-                                        title={`类型: ${m.type || 'image'} (点击切换)`}
-                                      >
-                                        <span className={`model-type-badge ${m.type || 'image'}`}>{m.type || 'image'}</span>
-                                      </button>
-                                      <button
-                                        className="model-act-btn danger"
-                                        onClick={(e) => { e.preventDefault(); deleteModel(m.id); }}
-                                        title="删除模型"
-                                      >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/></svg>
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
+                              <div className="settings-model-actions">
+                                <button
+                                  className={`model-act-btn ${m.visible ? 'active-vis' : ''}`}
+                                  onClick={(e) => { e.preventDefault(); toggleModelVisible(m.id); }}
+                                  title={m.visible ? '已显示 (在对话框中可见)' : '已隐藏 (在对话框中不可见)'}
+                                >
+                                  {m.visible ? (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                                  ) : (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+                                  )}
+                                </button>
+                                <button
+                                  className={`model-act-btn ${m.isDefault ? 'active-def' : ''}`}
+                                  onClick={(e) => { e.preventDefault(); toggleModelDefault(m.id); }}
+                                  title={m.isDefault ? '已设为默认' : '设为默认'}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                </button>
+                                <select
+                                  className="model-type-select"
+                                  value={m.type || 'image'}
+                                  onChange={(e) => { e.preventDefault(); setModelType(m.id, e.target.value); }}
+                                  title="选择模型类型"
+                                >
+                                  <option value="image">image</option>
+                                  <option value="chat">text</option>
+                                  <option value="video">video</option>
+                                </select>
+                                <button
+                                  className="model-act-btn danger"
+                                  onClick={(e) => { e.preventDefault(); deleteModel(m.id); }}
+                                  title="删除模型"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/></svg>
+                                </button>
                               </div>
                             </div>
                           ))
