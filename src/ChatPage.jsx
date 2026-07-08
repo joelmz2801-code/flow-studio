@@ -316,6 +316,26 @@ export default function ChatPage({ chatId }) {
     return explicitPatterns.some((re) => re.test(t) || re.test(tl))
   }
 
+  // Auto 模式智能画幅：按 prompt 关键词决定比例
+  // 默认 1:1，匹配到人像/竖屏关键词 → 9:16，匹配到风景/横幅关键词 → 16:9，匹配到竖幅 → 3:4
+  const detectAutoRatio = (text) => {
+    const t = (text || '').toLowerCase()
+    // 竖屏/竖幅/人像/手机壁纸/海报/全身像
+    const portraitRe = /(竖|竖屏|竖幅|海报|人像|全身|半身|头像|手机壁纸|故事|stories?|story|reel|reels|portrait|poster|vertical|standing|tall|人物|人物像|特写|人脸|脸|fashion|服装|时装|模特|model)/i
+    // 横幅/宽屏/风景/电脑壁纸/电影/视频封面
+    const landscapeRe = /(横|横幅|宽屏|风景|山川|山河|草原|大海|湖|天空|电脑壁纸|壁纸|全景|wide|landscape|banner|panorama|panoramic|电影|影|视频封面|封面|天空|建筑|城市|街景|cinematic|movie)/i
+    // 4:3 横幅
+    const fourThreeRe = /(4:3|四三|横幅|landscape photo|传统|风景照|风光)/i
+    // 3:4 竖幅
+    const threeFourRe = /(3:4|三四|竖幅|portrait photo|人像照|证件|全身照|全身像)/i
+    if (threeFourRe.test(t)) return RATIOS.find((r) => r.id === '3:4')
+    if (fourThreeRe.test(t)) return RATIOS.find((r) => r.id === '4:3')
+    if (portraitRe.test(t)) return RATIOS.find((r) => r.id === '9:16')
+    if (landscapeRe.test(t)) return RATIOS.find((r) => r.id === '16:9')
+    // 没匹配到任何关键词 → 1:1 方形
+    return RATIOS.find((r) => r.id === '1:1')
+  }
+
   const send = async (textOverride, refsOverride) => {
     const text = (textOverride ?? input).trim()
     if (!text || busy) return
@@ -358,6 +378,17 @@ export default function ChatPage({ chatId }) {
       renameChat(id, text.slice(0, 24))
     }
 
+    // Auto 模式：根据 prompt 关键词智能选择画幅
+    const effectiveRatio = ratio.id === 'auto' ? detectAutoRatio(text) : ratio
+    // 把识别出的画幅附加到 userMsg 的 meta 上（覆盖上面占位）
+    if (ratio.id === 'auto' && effectiveRatio.id !== '1:1') {
+      const updated = useStore.getState().chats.find((c) => c.id === id)
+      const u = updated?.messages.find((m) => m.id === userMsg.id)
+      if (u && !u.meta.find((t) => t.startsWith('画幅'))) {
+        updateMessage(id, userMsg.id, { meta: [...u.meta, `画幅 ${effectiveRatio.name} · 自动`] })
+      }
+    }
+
     const aiId = `m${Date.now()}a`
     appendMessage(id, {
       id: aiId, role: 'assistant', status: 'loading', text: '', images: [], videos: [],
@@ -389,7 +420,7 @@ export default function ChatPage({ chatId }) {
         const responseText = await generateChat({ messages: chatContext, model: activeModel }, controller.signal)
         updateMessage(id, aiId, { status: 'done', text: responseText })
       } else {
-        const img = await generateImage({ prompt, size: ratio.id === 'auto' ? undefined : sizeForRatio(ratio.w, ratio.h), refs: activeRefs, model: activeModel }, controller.signal)
+        const img = await generateImage({ prompt, size: effectiveRatio.id === 'auto' ? sizeForRatio(effectiveRatio.w, effectiveRatio.h) : sizeForRatio(ratio.w, ratio.h), refs: activeRefs, model: activeModel }, controller.signal)
         updateMessage(id, aiId, { status: 'done', images: [img], text: '' })
       }
     } catch (err) {
