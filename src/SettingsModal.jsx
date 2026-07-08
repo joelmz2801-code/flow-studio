@@ -3,6 +3,7 @@ import { useStore, forceFlushPendingSaves } from './store.js'
 import { useAuth } from './useAuth.js'
 import { testApiConnection, fetchModelsList } from './engine/runner.js'
 import { AVAILABLE_VARIABLES } from './engine/promptVariables.js'
+import ModelPickerModal from './components/ModelPickerModal.jsx'
 
 const EMPTY = {
   name: '',
@@ -64,6 +65,9 @@ export default function SettingsModal() {
   const [showAllModels, setShowAllModels] = useState(false)
   // 模型类型筛选
   const [modelTypeFilter, setModelTypeFilter] = useState('all')
+  // 模型挑选窗口：获取模型后弹出
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerNewIds, setPickerNewIds] = useState([])
 
   const showNotification = (type, message) => {
     setNotify({ type, message })
@@ -85,7 +89,7 @@ export default function SettingsModal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen])
 
-  if (!settingsOpen) return null
+  if (!settingsOpen && !pickerOpen) return null
 
   const select = (p) => {
     setActiveId(p.id)
@@ -254,27 +258,43 @@ export default function SettingsModal() {
     setFetching(true)
     try {
       const list = await fetchModelsList(draft.baseUrl, draft.apiKey)
-      setDraft((d) => {
-        const currentModels = d.models || []
-        const newModels = [...currentModels]
-        list.forEach((modelId) => {
-          if (!newModels.some((m) => m.id === modelId)) {
-            newModels.push({
-              id: modelId,
-              visible: false,
-              isDefault: false,
-              type: null
-            })
-          }
-        })
-        return { ...d, models: newModels }
-      })
-      showNotification('success', `获取成功！已加载 ${list.length} 个模型。请点击「眼睛」或「星标」收藏需要的模型，收藏后才会在对话框中显示。`)
+      // 过滤掉 draft 中已存在的
+      const existingIds = new Set((draft?.models || []).map((m) => m.id))
+      const newIds = list.filter((id) => !existingIds.has(id))
+      if (newIds.length === 0) {
+        showNotification('info', `已加载 ${list.length} 个模型，无新增`)
+        return
+      }
+      // 弹出挑选窗口，不直接写入 draft
+      setPickerNewIds(newIds)
+      setPickerOpen(true)
     } catch (err) {
       showNotification('error', `获取失败: ${err.message} (通常由于跨域CORS限制，您仍可在列表中手动添加/启用模型)`)
     } finally {
       setFetching(false)
     }
+  }
+
+  // Picker 确认后，把选中的模型合并到 draft.models
+  const handlePickerConfirm = (picks) => {
+    setDraft((d) => {
+      const currentModels = d.models || []
+      const result = [...currentModels]
+      picks.forEach((p) => {
+        const idx = result.findIndex((m) => m.id === p.id)
+        if (idx >= 0) {
+          // 已存在 → 合并（更新 type/visible/isDefault/isFavorite）
+          result[idx] = { ...result[idx], type: p.type, visible: p.visible, isDefault: p.isDefault, isFavorite: p.isFavorite }
+        } else if (p.type) {
+          // 新增（跳过未设 type 的）
+          result.push({ id: p.id, type: p.type, visible: !!p.visible, isDefault: !!p.isDefault, isFavorite: !!p.isFavorite })
+        }
+      })
+      return { ...d, models: result }
+    })
+    const added = picks.filter((p) => p.type).length
+    showNotification('success', `已添加 ${added} 个模型到当前预设`)
+    setPickerOpen(false)
   }
 
   const handleTestConnection = async () => {
@@ -866,6 +886,14 @@ export default function SettingsModal() {
           )}
         </div>
       </div>
+
+      <ModelPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onConfirm={handlePickerConfirm}
+        existingModels={draft?.models || []}
+        newModelIds={pickerNewIds}
+      />
     </div>
   )
 }
