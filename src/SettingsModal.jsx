@@ -160,11 +160,30 @@ export default function SettingsModal() {
     })
   }
 
+  const toggleModelType = (modelId) => {
+    const cycle = { image: 'video', video: 'chat', chat: 'image' }
+    setDraft((d) => ({
+      ...d,
+      models: (d.models || []).map((m) =>
+        m.id === modelId ? { ...m, type: cycle[m.type || 'image'] || 'image' } : m
+      )
+    }))
+  }
+
   const setModelType = (modelId, newType) => {
     setDraft((d) => ({
       ...d,
       models: (d.models || []).map((m) =>
         m.id === modelId ? { ...m, type: newType } : m
+      )
+    }))
+  }
+
+  const toggleModelFavorite = (modelId) => {
+    setDraft((d) => ({
+      ...d,
+      models: (d.models || []).map((m) =>
+        m.id === modelId ? { ...m, isFavorite: !m.isFavorite } : m
       )
     }))
   }
@@ -477,7 +496,7 @@ export default function SettingsModal() {
                   </div>
                 </div>
               ) : (
-              <div className="preset-form">
+              <div className="preset-form preset-form-redesign">
                 {notify && (
                   <div className={`preset-notify ${notify.type}`}>
                     <span>{notify.message}</span>
@@ -488,83 +507,120 @@ export default function SettingsModal() {
 
                 {draft && (
                   <>
-                    {/* ── Section: 基础配置 ── */}
-                    <div className="settings-section">
-                      <div className="settings-section-header">
-                        <div className="settings-section-icon blue">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M12 16v-4M12 8h.01"/></svg>
-                        </div>
-                        <div>
-                          <div className="settings-section-title">基础配置</div>
-                          <div className="settings-section-desc">预设名称、密钥与 API 地址</div>
-                        </div>
+                    {/* ── 预设名称行（名称 + 外部链接 + 启用开关） ── */}
+                    <div className="api-preset-name-row">
+                      <div className="api-preset-name-left">
+                        <input
+                          className="api-preset-name-input"
+                          value={draft.name}
+                          placeholder="预设名称"
+                          onChange={set('name')}
+                        />
+                        <button className="icon-link-btn" title="在新窗口打开" onClick={(e) => { e.preventDefault(); if (draft.baseUrl) window.open(draft.baseUrl, '_blank') }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </button>
                       </div>
-
-                      <label className="f">
-                        <span>预设名称</span>
-                        <input value={draft.name} placeholder="例如：中转站 A / 官方 API" onChange={set('name')} />
-                      </label>
-
-                      <div className="f" style={{ marginTop: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>API 密钥</span>
-                          <button className="test-btn" onClick={handleTestConnection} disabled={testing}>
-                            {testing ? '检测中...' : '检测连接'}
-                          </button>
-                        </div>
-                        <div className="key-input-container">
-                          <input
-                            type={showKey ? 'text' : 'password'}
-                            value={draft.apiKey}
-                            placeholder="sk-..."
-                            onChange={set('apiKey')}
-                          />
-                          <button className="show-key-btn" onClick={(e) => { e.preventDefault(); setShowKey(!showKey); }}>
-                            {showKey ? (
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
-                            ) : (
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-                            )}
-                          </button>
-                        </div>
-                        <span className="sub-hint">多个密钥使用逗号分隔，额度不足时自动切换</span>
-                      </div>
-
-                      <label className="f" style={{ marginTop: '12px' }}>
-                        <span>API 地址</span>
-                        <input value={draft.baseUrl} placeholder="https://api.example.com" onChange={set('baseUrl')} />
-                        <span className="sub-hint">预览: {draft.baseUrl ? `${draft.baseUrl}/v1/chat/completions` : '未设置'}</span>
+                      <label className="switch" title="启用/停用此预设">
+                        <input
+                          type="checkbox"
+                          checked={draft.enabled !== false}
+                          onChange={(e) => setDraft((d) => ({ ...d, enabled: e.target.checked }))}
+                        />
+                        <span className="switch-slider"></span>
                       </label>
                     </div>
 
-                    {/* ── Section: 模型管理 ── */}
-                    <div className="settings-section">
-                      <div className="settings-section-header">
-                        <div className="settings-section-icon purple">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                    {/* ── API 密钥行 ── */}
+                    <div className="api-field-block">
+                      <div className="api-field-label-row">
+                        <span className="api-field-label">API 密钥</span>
+                        <button className="icon-link-btn" title="复制当前密钥" onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(draft.apiKey || ''); setToast('已复制') }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg>
+                        </button>
+                      </div>
+                      <div className="api-input-with-button">
+                        <input
+                          type={showKey ? 'text' : 'password'}
+                          className="api-input"
+                          value={draft.apiKey}
+                          placeholder="请输入 API 密钥"
+                          onChange={set('apiKey')}
+                        />
+                        <button className="api-input-side-btn" onClick={(e) => { e.preventDefault(); setShowKey(!showKey); }} title={showKey ? '隐藏' : '显示'}>
+                          {showKey ? (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                          )}
+                        </button>
+                        <button className="api-input-action-btn" onClick={handleTestConnection} disabled={testing} title="检测连接">
+                          {testing ? '检测中...' : '检测'}
+                        </button>
+                      </div>
+                      <div className="api-field-hint-row">
+                        <a className="api-hint-link" onClick={(e) => { e.preventDefault(); if (draft.baseUrl) window.open(draft.baseUrl, '_blank') }}>点击这里获取密钥</a>
+                        <span className="api-hint-gray">多个密钥使用逗号分隔，额度不足时自动切换</span>
+                      </div>
+                    </div>
+
+                    {/* ── API 地址行 ── */}
+                    <div className="api-field-block">
+                      <div className="api-field-label-row">
+                        <span className="api-field-label">API 地址</span>
+                        <div className="api-field-icons">
+                          <button className="icon-link-btn" title="重置为默认" onClick={(e) => { e.preventDefault(); setDraft((d) => ({ ...d, baseUrl: '' })); }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                          </button>
+                          <button className="icon-link-btn" title="帮助">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                          </button>
                         </div>
-                        <div>
-                          <div className="settings-section-title">模型管理</div>
-                          <div className="settings-section-desc">仅「收藏/星标」的模型会出现在对话框中，其余默认隐藏</div>
+                      </div>
+                      <div className="api-input-with-button">
+                        <input
+                          className="api-input"
+                          value={draft.baseUrl}
+                          placeholder="https://api.example.com/v1"
+                          onChange={set('baseUrl')}
+                        />
+                        <button className="api-input-reset-btn" onClick={(e) => { e.preventDefault(); setDraft((d) => ({ ...d, baseUrl: '' })); }} title="清空地址">
+                          重置
+                        </button>
+                      </div>
+                      <div className="api-field-preview">
+                        预览：{draft.baseUrl ? `${draft.baseUrl}/chat/completions` : '未设置'}
+                      </div>
+                    </div>
+
+                    {/* ── 模型管理 ── */}
+                    <div className="api-models-block">
+                      <div className="api-models-header">
+                        <div className="api-models-header-left">
+                          <span className="api-field-label">模型</span>
+                          <span className="api-models-count">{draft.models?.length || 0}</span>
+                          <button className="icon-link-btn" title="批量管理">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                          </button>
+                          <input
+                            type="text"
+                            className="api-models-search"
+                            placeholder="搜索"
+                            value={modelSearchQuery}
+                            onChange={(e) => setModelSearchQuery(e.target.value)}
+                          />
                         </div>
-                        <div className="model-header-actions" style={{ marginLeft: 'auto' }}>
-                          <button className="model-top-btn" onClick={(e) => { e.preventDefault(); fetchPresetModels(); }} disabled={fetching}>
+                        <div className="api-models-header-right">
+                          <button className="api-fetch-btn" onClick={(e) => { e.preventDefault(); fetchPresetModels(); }} disabled={fetching}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                             {fetching ? '获取中...' : '获取模型列表'}
                           </button>
-                          <button className="model-top-btn" onClick={(e) => { e.preventDefault(); hideAllModels(); }} title="将所有模型设为隐藏（保留已设默认）">
-                            全部隐藏
-                          </button>
-                          <button
-                            className={`model-top-btn add-btn ${showAddForm ? 'active' : ''}`}
-                            onClick={(e) => { e.preventDefault(); setShowAddForm(v => !v); }}
-                            title="手动添加模型"
-                          >
-                            {showAddForm ? '取消' : '+ 添加'}
+                          <button className="api-add-btn" onClick={(e) => { e.preventDefault(); setShowAddForm(v => !v); }} title="手动添加模型">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                           </button>
                         </div>
                       </div>
 
-                      {/* 自定义添加模型内联表单 */}
+                      {/* 自定义添加模型表单 */}
                       {showAddForm && (
                         <div className="add-model-inline-form">
                           <div className="add-model-field">
@@ -581,21 +637,9 @@ export default function SettingsModal() {
                           <div className="add-model-field">
                             <label>类型</label>
                             <div className="add-model-type-selector">
-                              <button
-                                type="button"
-                                className={newModelType === 'image' ? 'active' : ''}
-                                onClick={() => setNewModelType('image')}
-                              >🖼 图片</button>
-                              <button
-                                type="button"
-                                className={newModelType === 'video' ? 'active' : ''}
-                                onClick={() => setNewModelType('video')}
-                              >🎬 视频</button>
-                              <button
-                                type="button"
-                                className={newModelType === 'chat' ? 'active' : ''}
-                                onClick={() => setNewModelType('chat')}
-                              >💬 文本</button>
+                              <button type="button" className={newModelType === 'image' ? 'active' : ''} onClick={() => setNewModelType('image')}>🖼 图片</button>
+                              <button type="button" className={newModelType === 'video' ? 'active' : ''} onClick={() => setNewModelType('video')}>🎬 视频</button>
+                              <button type="button" className={newModelType === 'chat' ? 'active' : ''} onClick={() => setNewModelType('chat')}>💬 文本</button>
                             </div>
                           </div>
                           <div className="add-model-actions">
@@ -605,76 +649,74 @@ export default function SettingsModal() {
                         </div>
                       )}
 
-                      <div className="model-filter-bar">
-                        <input
-                          type="text"
-                          className="model-inner-search"
-                          placeholder="搜索模型..."
-                          value={modelSearchQuery}
-                          onChange={(e) => setModelSearchQuery(e.target.value)}
-                        />
-                        <select
-                          className="model-type-filter"
-                          value={modelTypeFilter}
-                          onChange={(e) => setModelTypeFilter(e.target.value)}
-                        >
-                          <option value="all">全部类型</option>
-                          <option value="null">未设置</option>
-                          <option value="image">image</option>
-                          <option value="chat">text</option>
-                          <option value="video">video</option>
-                        </select>
+                      {/* 类型筛选 */}
+                      <div className="api-models-type-filter">
+                        <button className={`api-type-chip ${modelTypeFilter === 'all' ? 'active' : ''}`} onClick={() => setModelTypeFilter('all')}>全部 {draft.models?.length || 0}</button>
+                        <button className={`api-type-chip ${modelTypeFilter === 'null' ? 'active' : ''}`} onClick={() => setModelTypeFilter('null')}>未设置 {(draft.models || []).filter(m => !m.type).length}</button>
+                        <button className={`api-type-chip ${modelTypeFilter === 'image' ? 'active' : ''}`} onClick={() => setModelTypeFilter('image')}>image {(draft.models || []).filter(m => m.type === 'image').length}</button>
+                        <button className={`api-type-chip ${modelTypeFilter === 'chat' ? 'active' : ''}`} onClick={() => setModelTypeFilter('chat')}>text {(draft.models || []).filter(m => m.type === 'chat').length}</button>
+                        <button className={`api-type-chip ${modelTypeFilter === 'video' ? 'active' : ''}`} onClick={() => setModelTypeFilter('video')}>video {(draft.models || []).filter(m => m.type === 'video').length}</button>
+                        <button className="api-type-chip hide-all" onClick={(e) => { e.preventDefault(); hideAllModels(); }}>全部隐藏</button>
                       </div>
 
-                      <div className="settings-model-list">
+                      {/* 模型列表 */}
+                      <div className="api-models-list">
                         {filteredModels.length === 0 ? (
                           <div className="no-models-hint">无可用模型，点击"获取模型列表"加载</div>
                         ) : (
-                          filteredModels.map((m) => (
-                            <div key={m.id} className={`settings-model-row ${m.visible ? 'is-visible' : 'is-hidden'}`}>
-                              <div className="settings-model-info">
-                                <span className="settings-model-name-text" title={m.id}>{m.id}</span>
+                          filteredModels.map((m) => {
+                            // 按类型分组
+                            const groupKey = m.type || 'unset'
+                            return (
+                              <div key={m.id} className="api-model-row">
+                                <div className="api-model-icon">
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                </div>
+                                <span className="api-model-name">{m.id}</span>
+                                <div className="api-model-actions">
+                                  <button
+                                    className={`api-model-pill type-pill ${m.type || 'unset'}`}
+                                    onClick={(e) => { e.preventDefault(); setModelType(m.id, m.type === 'image' ? 'chat' : m.type === 'chat' ? 'video' : 'image'); }}
+                                    title="点击切换类型"
+                                  >
+                                    {m.type === 'image' && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg>}
+                                    {m.type === 'chat' && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>}
+                                    {m.type === 'video' && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>}
+                                    {!m.type && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>}
+                                    <span>{m.type || '请选择'}</span>
+                                  </button>
+                                  <button
+                                    className={`api-model-pill ${m.visible ? 'active-vis' : ''}`}
+                                    onClick={(e) => { e.preventDefault(); toggleModelVisible(m.id); }}
+                                    title={m.visible ? '已显示' : '已隐藏'}
+                                  >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg>
+                                  </button>
+                                  <button
+                                    className={`api-model-pill ${m.isDefault ? 'active-def' : ''}`}
+                                    onClick={(e) => { e.preventDefault(); toggleModelDefault(m.id); }}
+                                    title={m.isDefault ? '默认模型' : '设为默认'}
+                                  >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                  </button>
+                                  <button
+                                    className={`api-model-pill ${m.isFavorite ? 'active-fav' : ''}`}
+                                    onClick={(e) => { e.preventDefault(); toggleModelFavorite(m.id); }}
+                                    title={m.isFavorite ? '已收藏' : '收藏'}
+                                  >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                                  </button>
+                                  <button
+                                    className="api-model-pill danger"
+                                    onClick={(e) => { e.preventDefault(); deleteModel(m.id); }}
+                                    title="删除"
+                                  >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                  </button>
+                                </div>
                               </div>
-                              <div className="settings-model-actions">
-                                <button
-                                  className={`model-act-btn ${m.visible ? 'active-vis' : ''}`}
-                                  onClick={(e) => { e.preventDefault(); toggleModelVisible(m.id); }}
-                                  title={m.visible ? '已显示 (在对话框中可见)' : '已隐藏 (在对话框中不可见)'}
-                                >
-                                  {m.visible ? (
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-                                  ) : (
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
-                                  )}
-                                </button>
-                                <button
-                                  className={`model-act-btn ${m.isDefault ? 'active-def' : ''}`}
-                                  onClick={(e) => { e.preventDefault(); toggleModelDefault(m.id); }}
-                                  title={m.isDefault ? '已设为默认' : '设为默认'}
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                                </button>
-                                <select
-                                  className={`model-type-select ${!m.type ? 'unselected' : ''}`}
-                                  value={m.type || ''}
-                                  onChange={(e) => { e.preventDefault(); setModelType(m.id, e.target.value); }}
-                                  title="选择模型类型"
-                                >
-                                  <option value="" disabled>请选择</option>
-                                  <option value="image">image</option>
-                                  <option value="chat">text</option>
-                                  <option value="video">video</option>
-                                </select>
-                                <button
-                                  className="model-act-btn danger"
-                                  onClick={(e) => { e.preventDefault(); deleteModel(m.id); }}
-                                  title="删除模型"
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/></svg>
-                                </button>
-                              </div>
-                            </div>
-                          ))
+                            )
+                          })
                         )}
                       </div>
                     </div>
