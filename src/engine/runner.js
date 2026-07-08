@@ -283,6 +283,7 @@ export function resolveModelWithPresets(modelId, presets) {
             baseUrl: p.baseUrl,
             keys: p.apiKey ? p.apiKey.split(',').map(k => k.trim()).filter(Boolean) : [],
             apiModel: found.id,
+            chatPath: p.chatPath || '/v1/chat/completions',
             imagePath: p.imagePath || '/v1/images/generations',
             videoPath: p.videoPath || '/v1/videos',
             type: found.type || 'image'

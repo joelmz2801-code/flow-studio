@@ -11,8 +11,9 @@ const EMPTY = {
   apiKey: '',
   imageModel: '',
   videoModel: '',
+  chatPath: '/v1/chat/completions',
   imagePath: '/v1/images/generations',
-  videoPath: '/v1/videos/generations',
+  videoPath: '/v1/videos',
   models: [],
 }
 
@@ -68,6 +69,8 @@ export default function SettingsModal() {
   // 模型挑选窗口：获取模型后弹出
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerNewIds, setPickerNewIds] = useState([])
+  // 接口路径配置展开
+  const [showPaths, setShowPaths] = useState(false)
 
   const showNotification = (type, message) => {
     setNotify({ type, message })
@@ -623,8 +626,58 @@ export default function SettingsModal() {
                         </button>
                       </div>
                       <div className="api-field-preview">
-                        预览：{draft.baseUrl ? `${draft.baseUrl}/chat/completions` : '未设置'}
+                        预览：{draft.baseUrl ? `${draft.baseUrl}${(draft.chatPath || '/v1/chat/completions').replace(/^\/+/, '/')}` : '未设置'}
                       </div>
+                    </div>
+
+                    {/* ── 路径配置（chatPath / imagePath / videoPath） ── */}
+                    <div className="api-field-block api-paths-block">
+                      <div className="api-field-label-row">
+                        <span className="api-field-label">接口路径</span>
+                        <button
+                          type="button"
+                          className="api-paths-toggle"
+                          onClick={(e) => { e.preventDefault(); setShowPaths((v) => !v); }}
+                        >
+                          {showPaths ? '收起' : '展开'}
+                        </button>
+                      </div>
+                      {showPaths && (
+                        <div className="api-paths-grid">
+                          <label className="api-path-field">
+                            <span className="api-path-label">对话 Chat</span>
+                            <input
+                              className="api-input mono"
+                              value={draft.chatPath || ''}
+                              placeholder="/v1/chat/completions"
+                              onChange={set('chatPath')}
+                            />
+                          </label>
+                          <label className="api-path-field">
+                            <span className="api-path-label">生图 Image</span>
+                            <input
+                              className="api-input mono"
+                              value={draft.imagePath || ''}
+                              placeholder="/v1/images/generations"
+                              onChange={set('imagePath')}
+                            />
+                          </label>
+                          <label className="api-path-field">
+                            <span className="api-path-label">视频 Video</span>
+                            <input
+                              className="api-input mono"
+                              value={draft.videoPath || ''}
+                              placeholder="/v1/videos"
+                              onChange={set('videoPath')}
+                            />
+                          </label>
+                        </div>
+                      )}
+                      {!showPaths && (
+                        <div className="api-field-preview api-paths-summary">
+                          对话 {draft.chatPath || '/v1/chat/completions'} · 生图 {draft.imagePath || '/v1/images/generations'} · 视频 {draft.videoPath || '/v1/videos'}
+                        </div>
+                      )}
                     </div>
 
                     {/* ── 模型管理 ── */}
@@ -900,6 +953,6 @@ export default function SettingsModal() {
 }
 
 function pick(o) {
-  const { name, baseUrl, apiKey, imageModel, videoModel, imagePath, videoPath, models } = o
-  return { name, baseUrl, apiKey, imageModel, videoModel, imagePath, videoPath, models: models || [] }
+  const { name, baseUrl, apiKey, imageModel, videoModel, chatPath, imagePath, videoPath, models } = o
+  return { name, baseUrl, apiKey, imageModel, videoModel, chatPath, imagePath, videoPath, models: models || [] }
 }

@@ -1906,6 +1906,29 @@ textarea { resize: vertical; line-height: 1.5; }
 .api-hint-gray { color: var(--muted); }
 .api-field-preview { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
 
+/* ── 接口路径配置 ── */
+.api-paths-block { gap: 8px; }
+.api-paths-toggle {
+  font-family: inherit; font-size: 11.5px; font-weight: 500;
+  color: var(--blue); background: transparent; border: none;
+  cursor: pointer; padding: 2px 6px; border-radius: 6px;
+  transition: background 0.15s ease;
+}
+.api-paths-toggle:hover { background: var(--blue-soft); }
+.api-paths-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+.api-path-field { display: flex; flex-direction: column; gap: 4px; }
+.api-path-label { font-size: 10.5px; color: var(--muted); font-weight: 500; }
+.api-paths-summary {
+  font-size: 11px; line-height: 1.6; color: var(--muted);
+  background: #f8fafd; border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px;
+}
+@media (max-width: 720px) {
+  .api-paths-grid { grid-template-columns: 1fr; }
+}
+
 /* ── 模型区 ── */
 .api-models-block { display: flex; flex-direction: column; gap: 10px; padding-top: 8px; }
 .api-models-header {
@@ -2016,6 +2039,8 @@ textarea { resize: vertical; line-height: 1.5; }
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
+/* 模型挑选窗口层级必须高于设置面板（二者都基于 .modal-mask） */
+.modal-mask-picker { z-index: 200 !important; }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 20px 24px 14px; border-bottom: 1px solid var(--border);

@@ -73,7 +73,7 @@ export default function ModelPickerModal({ open, onClose, onConfirm, existingMod
   }
 
   return (
-    <div className="modal-mask" onClick={onClose}>
+    <div className="modal-mask modal-mask-picker" onClick={onClose}>
       <div className="modal modal-picker" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
