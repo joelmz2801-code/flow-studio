@@ -703,7 +703,14 @@ textarea { resize: vertical; line-height: 1.5; }
   width: 100%; border: none; outline: none; resize: none;
   font-family: inherit; font-size: 14px; line-height: 1.6;
   color: var(--text); background: transparent;
+  -webkit-appearance: none; appearance: none;
+  box-shadow: none; -webkit-box-shadow: none;
   min-height: 24px; max-height: 160px; padding: 2px 4px;
+}
+.composer textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  box-shadow: 0 0 0 1000px transparent inset !important;
+  -webkit-text-fill-color: var(--text) !important;
 }
 .composer-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .composer-bar .spacer { flex: 1; }
