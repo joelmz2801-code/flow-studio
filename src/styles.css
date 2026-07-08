@@ -299,7 +299,11 @@ textarea { resize: vertical; line-height: 1.5; }
   content: ''; position: absolute; left: 14px; right: 14px; bottom: -1px;
   height: 2px; background: var(--blue); border-radius: 2px 2px 0 0;
 }
-.modal-settings-split { width: min(820px, 94vw); }
+.modal-settings-split {
+  width: 100vw; max-width: 100vw;
+  height: 100vh; max-height: 100vh;
+  border-radius: 0;
+}
 
 /* ── 账户设置界面 ── */
 .settings-pane { padding: 24px 26px; flex: 1; overflow-y: auto; }
@@ -345,7 +349,7 @@ textarea { resize: vertical; line-height: 1.5; }
 
 .modal-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .preset-list {
-  width: 230px; flex-shrink: 0;
+  width: 260px; flex-shrink: 0;
   border-right: 1px solid var(--border);
   padding: 14px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 6px;
@@ -372,6 +376,34 @@ textarea { resize: vertical; line-height: 1.5; }
   transition: all 0.15s;
 }
 .preset-add:hover { border-color: var(--blue); background: var(--blue-soft); }
+
+/* ── 预设/模型视图切换 ── */
+.preset-view-toggle {
+  display: flex; gap: 4px; margin-bottom: 10px;
+  background: #eef1f6; border-radius: 10px; padding: 3px;
+}
+.preset-view-btn {
+  flex: 1; padding: 7px 10px; border: none; border-radius: 8px;
+  background: transparent; font-family: inherit; font-size: 12px; font-weight: 600;
+  color: var(--muted); cursor: pointer; transition: all 0.15s ease;
+}
+.preset-view-btn.active { background: #fff; color: var(--blue); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.preset-view-btn:hover:not(.active) { color: var(--text); }
+
+/* ── 全部模型侧边栏提示 ── */
+.all-models-sidebar { padding: 10px 4px; }
+.all-models-hint { font-size: 11.5px; color: var(--muted); margin: 0 0 6px; line-height: 1.5; }
+.all-models-count {
+  font-size: 22px; font-weight: 700; color: var(--blue);
+  padding: 8px 12px; background: var(--blue-soft); border-radius: 10px;
+  text-align: center;
+}
+
+/* ── 汇总表中模型行的预设名 ── */
+.settings-model-preset-name {
+  font-size: 10.5px; color: var(--muted); font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 .preset-form {
   flex: 1; padding: 20px 24px; overflow-y: auto;

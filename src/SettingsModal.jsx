@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useStore, forceFlushPendingSaves } from './store.js'
 import { useAuth } from './useAuth.js'
 import { testApiConnection, fetchModelsList } from './engine/runner.js'
@@ -60,6 +60,8 @@ export default function SettingsModal() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newModelName, setNewModelName] = useState('')
   const [newModelType, setNewModelType] = useState('image')
+  // 是否显示全部模型汇总视图
+  const [showAllModels, setShowAllModels] = useState(false)
 
   const showNotification = (type, message) => {
     setNotify({ type, message })
@@ -157,10 +159,11 @@ export default function SettingsModal() {
   }
 
   const toggleModelType = (modelId) => {
+    const cycle = { image: 'video', video: 'chat', chat: 'image' }
     setDraft((d) => ({
       ...d,
       models: (d.models || []).map((m) =>
-        m.id === modelId ? { ...m, type: m.type === 'video' ? 'image' : 'video' } : m
+        m.id === modelId ? { ...m, type: cycle[m.type || 'image'] || 'image' } : m
       )
     }))
   }
@@ -276,6 +279,19 @@ export default function SettingsModal() {
     items: filteredModels.filter(m => (m.type || 'image') === g.type),
   })).filter(g => g.items.length > 0)
 
+  // 汇总所有预设中已添加的模型
+  const allAddedModels = presets.flatMap(p =>
+    (p.models || []).map(m => ({
+      ...m,
+      presetId: p.id,
+      presetName: p.name || '未命名',
+    }))
+  )
+  const allModelsGrouped = MODEL_TYPE_GROUPS.map(g => ({
+    ...g,
+    items: allAddedModels.filter(m => (m.type || 'image') === g.type),
+  })).filter(g => g.items.length > 0)
+
   const tab = settingsTab || 'api'
 
   return (
@@ -372,19 +388,90 @@ export default function SettingsModal() {
           {tab === 'api' && (
             <>
               <div className="preset-list">
-                {presets.map((p) => (
+                <div className="preset-view-toggle">
                   <button
-                    key={p.id}
-                    className={`preset-item ${p.id === activeId ? 'active' : ''}`}
-                    onClick={() => select(p)}
-                  >
-                    <span className="preset-name">{p.name || '未命名'}</span>
-                    <span className="preset-url">{p.baseUrl || '未设置 Base URL'}</span>
-                  </button>
-                ))}
-                <button className="preset-add" onClick={create}>＋ 新建预设</button>
+                    className={`preset-view-btn ${!showAllModels ? 'active' : ''}`}
+                    onClick={() => setShowAllModels(false)}
+                  >预设管理</button>
+                  <button
+                    className={`preset-view-btn ${showAllModels ? 'active' : ''}`}
+                    onClick={() => setShowAllModels(true)}
+                  >全部模型</button>
+                </div>
+                {!showAllModels && (
+                  <>
+                    {presets.map((p) => (
+                      <button
+                        key={p.id}
+                        className={`preset-item ${p.id === activeId ? 'active' : ''}`}
+                        onClick={() => select(p)}
+                      >
+                        <span className="preset-name">{p.name || '未命名'}</span>
+                        <span className="preset-url">{p.baseUrl || '未设置 Base URL'}</span>
+                      </button>
+                    ))}
+                    <button className="preset-add" onClick={create}>＋ 新建预设</button>
+                  </>
+                )}
+                {showAllModels && (
+                  <div className="all-models-sidebar">
+                    <p className="all-models-hint">所有预设中已添加的模型汇总</p>
+                    <div className="all-models-count">
+                      {allAddedModels.length} 个模型
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {showAllModels ? (
+                <div className="preset-form">
+                  <div className="settings-section">
+                    <div className="settings-section-header">
+                      <div className="settings-section-icon purple">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                      </div>
+                      <div>
+                        <div className="settings-section-title">已添加模型汇总</div>
+                        <div className="settings-section-desc">所有预设中已添加的全部模型，可在此快速查找与定位</div>
+                      </div>
+                    </div>
+                    {allAddedModels.length === 0 ? (
+                      <div className="no-models-hint">尚未添加任何模型</div>
+                    ) : (
+                      <div className="settings-model-list">
+                        {allModelsGrouped.map((group) => (
+                          <div key={group.type} className="model-type-group">
+                            <div className="model-type-group-header">
+                              <span>{group.label}</span>
+                              <span className="model-type-group-count">{group.items.length}</span>
+                            </div>
+                            <div className="model-type-group-body">
+                              {group.items.map((m) => (
+                                <div key={m.id + m.presetId} className={`settings-model-row ${m.visible ? 'is-visible' : 'is-hidden'}`}>
+                                  <div className="settings-model-info">
+                                    <span className="settings-model-name-text" title={m.id}>{m.id}</span>
+                                    <span className="settings-model-preset-name">{m.presetName}</span>
+                                  </div>
+                                  <div className="settings-model-actions">
+                                    <span className={`model-type-badge ${m.type || 'image'}`}>{m.type || 'image'}</span>
+                                    <button
+                                      className="model-act-btn"
+                                      onClick={() => { select(presets.find(p => p.id === m.presetId)); setShowAllModels(false); }}
+                                      title="跳转到该预设"
+                                    >
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 7h7v7"/><path d="M21 7l-9 9"/><path d="M3 17v-4a4 4 0 0 1 4-4h7" strokeLinecap="round"/></svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
               <div className="preset-form">
                 {notify && (
                   <div className={`preset-notify ${notify.type}`}>
@@ -592,6 +679,7 @@ export default function SettingsModal() {
                   </>
                 )}
               </div>
+              )}
             </>
           )}
 
