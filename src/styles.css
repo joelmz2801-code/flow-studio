@@ -577,10 +577,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .msg-icon-btn:active { transform: scale(0.94); }
 .msg-del-icon:hover { color: var(--red); background: #fce8e6; border-color: #f2c1bd; }
 
-/* ── textarea 高度自适应平滑过渡 ── */
-.composer textarea {
-  transition: height 0.12s ease;
-}
+/* ── textarea 高度自适应（无过渡，直接显示） ── */
 .chat-thread {
   max-width: 780px; margin: 0 auto; padding: 32px 24px 16px;
   display: flex; flex-direction: column; gap: 22px;
@@ -668,18 +665,14 @@ textarea { resize: vertical; line-height: 1.5; }
   background: #fff; border: 1px solid var(--border);
   border-radius: 14px; padding: 10px 12px 8px;
   box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.composer:focus-within { border-color: var(--border); }
+.composer:focus-within { border-color: var(--border); box-shadow: var(--shadow-sm); }
 .composer textarea {
-  width: 100%; border: 1px solid transparent; border-radius: 10px;
-  outline: none; resize: none;
+  width: 100%; border: none; outline: none; resize: none;
   font-family: inherit; font-size: 14px; line-height: 1.6;
   color: var(--text); background: transparent;
   min-height: 24px; max-height: 160px; padding: 2px 4px;
-  transition: border-color 0.15s ease;
 }
-.composer textarea:focus { border-color: transparent; }
 .composer-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .composer-bar .spacer { flex: 1; }
 .tool-btn {
