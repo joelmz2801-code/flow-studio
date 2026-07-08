@@ -127,8 +127,8 @@ export default function ChatPage({ chatId }) {
           allVisibleModels.push({
             id: m.id,
             label: m.id,
-            desc: `${m.type === 'video' ? '视频模型' : m.type === 'chat' ? '文本模型' : '图片模型'} | ${p.name || '自定义'}`,
-            type: m.type || 'image',
+            desc: `${m.type === 'video' ? '视频模型' : m.type === 'chat' ? '文本模型' : m.type === 'image' ? '图片模型' : '未设置类型'} | ${p.name || '自定义'}`,
+            type: m.type || null,
             isBuiltin: false
           })
         }
@@ -299,6 +299,8 @@ export default function ChatPage({ chatId }) {
   const activeModelObj = allVisibleModels.find(m => m.id === model)
   const isVideo = activeModelObj?.type === 'video'
   const isChat = activeModelObj?.type === 'chat'
+  const isImage = activeModelObj?.type === 'image'
+  const isUnsetType = !activeModelObj?.type
 
   // 生图意图检测：仅当用户**明确**要求生图时才转接（避免聊天中误触"画""draw"等普通用词）
   const detectImageIntent = (text) => {
@@ -339,6 +341,13 @@ export default function ChatPage({ chatId }) {
   const send = async (textOverride, refsOverride) => {
     const text = (textOverride ?? input).trim()
     if (!text || busy) return
+
+    // 模型类型未设置时拦截
+    if (isUnsetType && !refsOverride && refs.length === 0) {
+      setToast('请先在设置中为该模型选择类型（image / text / video）')
+      return
+    }
+
     let id = chatId
     if (!chat) id = createChat()
 
@@ -628,10 +637,11 @@ export default function ChatPage({ chatId }) {
                         { type: 'image', label: '图片模型', icon: '🖼' },
                         { type: 'video', label: '视频模型', icon: '🎬' },
                         { type: 'chat',  label: '文本模型', icon: '💬' },
+                        { type: null,    label: '未设置类型', icon: '⚠' },
                       ]
                       const groups = TYPE_GROUPS.map(g => ({
                         ...g,
-                        items: filtered.filter(m => (m.type || 'image') === g.type),
+                        items: filtered.filter(m => (m.type || null) === g.type),
                       })).filter(g => g.items.length > 0)
                       
                       return (
@@ -649,7 +659,7 @@ export default function ChatPage({ chatId }) {
                                   className={`chat-model-item ${model === m.id ? 'selected' : ''}`}
                                   onClick={() => pickModel(m.id)}
                                 >
-                                  <span className={`model-type-badge ${m.type || 'image'}`}>{m.type || 'image'}</span>
+                                  <span className={`model-type-badge ${m.type || 'unset'}`}>{m.type || '未设置'}</span>
                                   <span className="chat-model-item-info">
                                     <span className="chat-model-item-label">{m.label}</span>
                                     <span className="chat-model-item-desc">{m.desc}</span>

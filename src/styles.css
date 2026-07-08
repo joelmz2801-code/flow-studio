@@ -1803,6 +1803,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .model-type-badge.image { background: #e8f0fe; color: #1a73e8; }
 .model-type-badge.video { background: #f3e8ff; color: #7c4dff; }
 .model-type-badge.chat  { background: #e6f4ea; color: #188038; }
+.model-type-badge.unset { background: #fef0f0; color: #d93025; }
 
 /* ── Model type select dropdown ── */
 .model-type-select {
@@ -1814,6 +1815,19 @@ textarea { resize: vertical; line-height: 1.5; }
 }
 .model-type-select:hover { border-color: var(--blue); }
 .model-type-select:focus { border-color: var(--blue); }
+.model-type-select.unselected { color: var(--muted); border-color: #f5c4c0; background: #fff5f5; }
+
+/* ── 模型筛选栏 ── */
+.model-filter-bar { display: flex; gap: 8px; margin-bottom: 10px; }
+.model-filter-bar .model-inner-search { flex: 1; }
+.model-type-filter {
+  font-family: inherit; font-size: 12px; font-weight: 500;
+  padding: 6px 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: #fff;
+  color: var(--text); cursor: pointer; outline: none;
+  flex-shrink: 0;
+}
+.model-type-filter:hover { border-color: var(--blue); }
 
 /* ── Clean SVG action buttons (replacing emoji) ── */
 .model-act-btn {

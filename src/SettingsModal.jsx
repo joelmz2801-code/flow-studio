@@ -62,6 +62,8 @@ export default function SettingsModal() {
   const [newModelType, setNewModelType] = useState('image')
   // 是否显示全部模型汇总视图
   const [showAllModels, setShowAllModels] = useState(false)
+  // 模型类型筛选
+  const [modelTypeFilter, setModelTypeFilter] = useState('all')
 
   const showNotification = (type, message) => {
     setNotify({ type, message })
@@ -228,7 +230,7 @@ export default function SettingsModal() {
               id: modelId,
               visible: false,
               isDefault: false,
-              type: modelId.includes('video') || modelId.includes('sora') ? 'video' : 'image'
+              type: null
             })
           }
         })
@@ -263,9 +265,13 @@ export default function SettingsModal() {
   }
 
 
-  const filteredModels = (draft?.models || []).filter(m =>
-    !modelSearchQuery || m.id.toLowerCase().includes(modelSearchQuery.toLowerCase())
-  )
+  const filteredModels = (draft?.models || []).filter(m => {
+    const matchSearch = !modelSearchQuery || m.id.toLowerCase().includes(modelSearchQuery.toLowerCase())
+    const matchType = modelTypeFilter === 'all' ? true :
+      modelTypeFilter === 'null' ? !m.type :
+      (m.type || '') === modelTypeFilter
+    return matchSearch && matchType
+  })
 
   // Group models by type instead of prefix
   const MODEL_TYPE_GROUPS = [
@@ -599,13 +605,26 @@ export default function SettingsModal() {
                         </div>
                       )}
 
-                      <input
-                        type="text"
-                        className="model-inner-search"
-                        placeholder="搜索模型..."
-                        value={modelSearchQuery}
-                        onChange={(e) => setModelSearchQuery(e.target.value)}
-                      />
+                      <div className="model-filter-bar">
+                        <input
+                          type="text"
+                          className="model-inner-search"
+                          placeholder="搜索模型..."
+                          value={modelSearchQuery}
+                          onChange={(e) => setModelSearchQuery(e.target.value)}
+                        />
+                        <select
+                          className="model-type-filter"
+                          value={modelTypeFilter}
+                          onChange={(e) => setModelTypeFilter(e.target.value)}
+                        >
+                          <option value="all">全部类型</option>
+                          <option value="null">未设置</option>
+                          <option value="image">image</option>
+                          <option value="chat">text</option>
+                          <option value="video">video</option>
+                        </select>
+                      </div>
 
                       <div className="settings-model-list">
                         {filteredModels.length === 0 ? (
@@ -636,11 +655,12 @@ export default function SettingsModal() {
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                                 </button>
                                 <select
-                                  className="model-type-select"
-                                  value={m.type || 'image'}
+                                  className={`model-type-select ${!m.type ? 'unselected' : ''}`}
+                                  value={m.type || ''}
                                   onChange={(e) => { e.preventDefault(); setModelType(m.id, e.target.value); }}
                                   title="选择模型类型"
                                 >
+                                  <option value="" disabled>请选择</option>
                                   <option value="image">image</option>
                                   <option value="chat">text</option>
                                   <option value="video">video</option>
