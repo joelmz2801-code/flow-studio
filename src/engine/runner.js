@@ -314,37 +314,18 @@ async function urlToDataUri(url, signal) {
 }
 
 // 检测字符串是否包含中文字符
+// 保留以备后续使用，但生图/视频不再自动翻译，由 API 自行处理
 function hasChinese(text) {
   if (!text) return false
   return /[\u4e00-\u9fa5]/.test(text)
-}
-
-// 用 Command 模型把中文 prompt 翻译为英文（失败时回退原文，不阻塞生图流程）
-async function translatePromptToEnglish(text, signal) {
-  if (!text || !hasChinese(text)) return text
-  try {
-    const translated = await generateChat({
-      messages: [
-        {
-          role: 'system',
-          content: 'Translate the user\'s image generation prompt into fluent English. Return ONLY the English prompt, without any commentary, quotes, or explanations.',
-        },
-        { role: 'user', content: text },
-      ],
-      model: 'command-a-vision',
-    }, signal)
-    return (translated || text).trim()
-  } catch {
-    return text
-  }
 }
 
 export async function generateImage({ prompt, size, refs = [], model }, signal) {
   const presets = useStore.getState().presets
   const ch = resolveModelWithPresets(model || DEFAULT_MODEL, presets)
   const hasRefs = refs && refs.length > 0
-  // 中文 prompt 自动翻译成英文（Agnes 训练集以英文为主，中文直出质量差）
-  const finalPrompt = await translatePromptToEnglish(prompt, signal)
+  // 不再做中文→英文翻译，直接把原始 prompt 交给生图 API
+  const finalPrompt = prompt
   const body = { model: ch.apiModel, prompt: finalPrompt, n: 1 }
   const snapped = snapSizeForModel(ch.apiModel, size)
   if (snapped) body.size = snapped
@@ -393,9 +374,8 @@ export async function generateImage({ prompt, size, refs = [], model }, signal) 
 export async function generateVideo({ prompt, model, refImage }, signal) {
   const presets = useStore.getState().presets
   const ch = resolveModelWithPresets(model, presets)
-  // 中文 prompt 自动翻译成英文后再送生视频模型
-  const finalPrompt = await translatePromptToEnglish(prompt, signal)
-  const body = { model: ch.apiModel, prompt: finalPrompt }
+  // 不再做中文→英文翻译，直接把原始 prompt 交给生视频 API
+  const body = { model: ch.apiModel, prompt }
   if (refImage) body.image = refImage
 
   const total = ch.keys.length
@@ -448,7 +428,34 @@ export async function generateVideo({ prompt, model, refImage }, signal) {
   throw lastErr
 }
 
-export async function generateChat({ messages, model }, signal) {
+// ── 工具定义：供文本模型通过 function calling 调用 ──────────────
+// 当前仅暴露 generate_image 工具，未来可加 generate_video 等
+export const CHAT_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'generate_image',
+      description: '根据用户描述生成一张图片。仅在用户明确希望生成图片时调用；如果只是想聊天、问答、解释概念，不要调用此工具。',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: {
+            type: 'string',
+            description: '图片的英文或中文描述，越具体越好。',
+          },
+          size: {
+            type: 'string',
+            enum: ['1024x1024', '1536x1024', '1024x1536', 'auto'],
+            description: '图片尺寸，默认 1024x1024。',
+          },
+        },
+        required: ['prompt'],
+      },
+    },
+  },
+]
+
+export async function generateChat({ messages, model, tools, tool_choice }, signal) {
   const presets = useStore.getState().presets
   const ch = resolveModelWithPresets(model, presets)
   // 注入用户自定义提示词（按顺序拼接为 system message）
@@ -471,7 +478,12 @@ export async function generateChat({ messages, model }, signal) {
     : [{ role: 'system', content: sysContent }, ...messages]
   const body = {
     model: ch.apiModel,
-    messages: finalMessages
+    messages: finalMessages,
+  }
+  // 注入 tools（OpenAI 兼容格式）
+  if (tools && Array.isArray(tools) && tools.length > 0) {
+    body.tools = tools
+    if (tool_choice) body.tool_choice = tool_choice
   }
   const url = joinUrl(ch.baseUrl, ch.chatPath || '/v1/chat/completions')
   const total = ch.keys.length
@@ -488,11 +500,16 @@ export async function generateChat({ messages, model }, signal) {
       const apiKey = ch.keys[idx]
       const json = await apiPost(url, apiKey, body, signal)
       if (signal?.aborted) throw new Error('aborted')
-      const content = json?.choices?.[0]?.message?.content
+      const message = json?.choices?.[0]?.message || {}
+      // 工具调用：返回原始 message 对象（包含 tool_calls）
+      if (Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
+        return { type: 'tool_calls', message, content: message.content || '' }
+      }
+      const content = message.content
       if (typeof content !== 'string') {
         throw new Error('响应中未找到文本内容')
       }
-      return content
+      return { type: 'text', content }
     } catch (err) {
       if (err?.name === 'AbortError' || /aborted/i.test(err?.message || '')) throw err
       lastErr = err

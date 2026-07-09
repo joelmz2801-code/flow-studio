@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from './store.js'
-import { generateImage, generateVideo, generateChat, downloadMedia, listModels } from './engine/runner.js'
+import { generateImage, generateVideo, generateChat, downloadMedia, listModels, CHAT_TOOLS } from './engine/runner.js'
 import { Logo } from './components/Logo.jsx'
 
 import { BUILTIN_MODELS, DEFAULT_MODEL } from './engine/builtin.js'
@@ -311,21 +311,11 @@ export default function ChatPage({ chatId }) {
   const isImage = activeModelObj?.type === 'image'
   const isUnsetType = !activeModelObj?.type
 
-  // 生图意图检测：仅当用户**明确**要求生图时才转接（避免聊天中误触"画""draw"等普通用词）
-  const detectImageIntent = (text) => {
-    const t = text.trim()
-    const tl = t.toLowerCase()
-    // 明确的生图指令（动词+量词/对象 的组合）
-    const explicitPatterns = [
-      // 中文：必须同时含"画/生成/做/出/创建"等动词 + 图片/图/幅/张 等对象标记
-      /画[一 几 几 些 个 张 幅 只 条 副 块 片]?(张|个|幅|只|条|副|块|片|照片|插画|头像|图片|画|图)/,
-      /(生成|创建|做|出|产出|产出|给我|帮我|来|做张|来张|来一个|做一个|出一张)(一?[张个幅只条副块片])?(图|图片|照片|插画|头像|画面|画)/,
-      /(生成图|生图|出图|做图|做张图|出一张图|生成图片|生成一张图|帮我画|给我画|帮我生成|创建图片)/,
-      // 英文
-      /\b(draw|generate|create|make|render|produce)\b.*\b(image|picture|photo|illustration|avatar|art|drawing|painting)\b/,
-    ]
-    return explicitPatterns.some((re) => re.test(t) || re.test(tl))
-  }
+  // 生图意图检测已废弃：文本模型不再自动转接生图，避免"画""draw"等普通用词误触
+  // 用户需要生图时：
+  //   1) 上传参考图 → 自动走图生图
+  //   2) 主动从模型下拉框切换到图片模型
+  //   3) 由文本模型通过 tool_calls 主动调用 generate_image 工具
 
   // Auto 模式智能画幅：按 prompt 关键词决定比例
   // 默认 1:1，匹配到人像/竖屏关键词 → 9:16，匹配到风景/横幅关键词 → 16:9，匹配到竖幅 → 3:4
@@ -364,17 +354,14 @@ export default function ChatPage({ chatId }) {
     const activeRefs = refsOverride || refs
 
     // 自动转接逻辑：
-    // 1. 上传了参考图 → 一律走图生图（agnes-image-2.1-flash），不管文字是否含生图关键词
-    // 2. 无参考图 + 当前是文本模型 + 用户明确要求生图 → 切到文生图
+    // 1. 上传了参考图 → 一律走图生图（agnes-image-2.1-flash）
+    // 2. 文本模型不再基于关键词自动转生图（避免误触）
+    // 3. 文本模型可通过 tool_calls 调用 generate_image 工具主动生图
     let activeModel = model
     let activeIsVideo = isVideo
     let activeIsChat = isChat
     if (activeRefs.length > 0) {
       // 有参考图 → 图生图模式
-      activeModel = 'agnes-image-2.1-flash'
-      activeIsVideo = false
-      activeIsChat = false
-    } else if (isChat && detectImageIntent(text)) {
       activeModel = 'agnes-image-2.1-flash'
       activeIsVideo = false
       activeIsChat = false
@@ -435,7 +422,56 @@ export default function ChatPage({ chatId }) {
           .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.text && m.status !== 'loading')
           .map((m) => ({ role: m.role, content: m.text }))
         const chatContext = history.length > 0 ? history : [{ role: 'user', content: prompt }]
-        const responseText = await generateChat({ messages: chatContext, model: activeModel }, controller.signal)
+        // 给文本模型注入工具列表，让它知道有 generate_image 可用
+        const result = await generateChat({
+          messages: chatContext,
+          model: activeModel,
+          tools: CHAT_TOOLS,
+          tool_choice: 'auto',
+        }, controller.signal)
+
+        // 工具调用分支：执行 generate_image
+        if (result?.type === 'tool_calls' && Array.isArray(result.message?.tool_calls)) {
+          const toolCall = result.message.tool_calls.find(
+            (tc) => tc?.function?.name === 'generate_image'
+          )
+          if (toolCall) {
+            let args = {}
+            try { args = JSON.parse(toolCall.function.arguments || '{}') } catch { args = {} }
+            const imagePrompt = (args.prompt || text).trim()
+            const imageSize = args.size || '1024x1024'
+            // 把工具调用意图写入消息气泡
+            updateMessage(id, aiId, {
+              status: 'loading',
+              text: result.content || `正在生成图片：${imagePrompt.slice(0, 80)}…`,
+              mediaType: 'chat',
+            })
+            try {
+              const img = await generateImage({
+                prompt: imagePrompt,
+                size: imageSize,
+                refs: [],
+                model: 'agnes-image-2.1-flash',
+              }, controller.signal)
+              // 合并为新消息：保留文字说明 + 附加图片
+              updateMessage(id, aiId, {
+                status: 'done',
+                text: result.content || `已生成图片：${imagePrompt}`,
+                images: [img],
+                mediaType: 'chat',
+              })
+            } catch (imgErr) {
+              updateMessage(id, aiId, {
+                status: 'error',
+                text: `${result.content || ''}\n\n[生图失败] ${imgErr.message}`.trim(),
+              })
+            }
+            return
+          }
+        }
+
+        // 普通文本回复
+        const responseText = result?.content ?? (typeof result === 'string' ? result : '')
         updateMessage(id, aiId, { status: 'done', text: responseText })
       } else {
         const img = await generateImage({ prompt, size: effectiveRatio.id === 'auto' ? sizeForRatio(effectiveRatio.w, effectiveRatio.h) : sizeForRatio(ratio.w, ratio.h), refs: activeRefs, model: activeModel }, controller.signal)
@@ -792,10 +828,16 @@ function Message({ m, onDelete, onAddReference, onCopy, onRegenerate }) {
       </div>
       <div className="msg-content">
         <div className="bubble bubble-ai">
-          {m.status === 'loading' && m.mediaType === 'chat' && (
+          {m.status === 'loading' && m.mediaType === 'chat' && !m.images && (
             <div className="gen-text-loading" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--muted)', fontSize: '13px' }}>
               <span className="spinner spinner-blue" />
               正在思考…
+            </div>
+          )}
+          {m.status === 'loading' && m.mediaType === 'chat' && m.images && (
+            <div className="gen-text-loading" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--muted)', fontSize: '13px' }}>
+              <span className="spinner spinner-blue" />
+              {m.text || '正在生图…'}
             </div>
           )}
           {m.status === 'loading' && m.mediaType !== 'chat' && (
