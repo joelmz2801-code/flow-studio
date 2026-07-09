@@ -5,7 +5,27 @@
 const _d = (s) => (typeof atob === 'function' ? atob(s) : Buffer.from(s, 'base64').toString('utf8'))
 
 // 通道数据（编码存储）
+// 系统现在统一使用 Agnes 通道（ag）；co / or 通道定义仅作历史兼容保留，
+// 不再被任何内置模型引用，旧聊天记录若仍引用 command-a-vision / hy3，
+// 仍可由对应通道继续响应。
 const _P = {
+  ag: {
+    u: 'aHR0cHM6Ly9qb2VsLWFwaS1rZXktcHJveHkuam9lbHRpbmcwMi53b3JrZXJzLmRldi9hZ25lc2Fp',
+    k: ['eHVXako4T1pOTVVWU1gtRjA1c2hJSk41c0hpN0JlX1NrVFROdXFLajFKTQ=='],
+    imagePath: '/images/generations',
+    videoPath: '/videos',
+    chatPath: '/chat/completions',
+  },
+  // 兼容保留：旧消息中可能仍引用 Command / HY3
+  co: {
+    u: 'aHR0cHM6Ly9hcGkuY29oZXJlLmFpL2NvbXBhdGliaWxpdHk=',
+    k: ['aDRVQzNUVHR3dVdwSEZSYkVPWk9teU40aGlndlNlQWZVeDVsQndobA=='],
+  },
+  or: {
+    u: 'aHR0cHM6Ly9vcGVucm91dGVyLmFp',
+    k: ['c2stb3ItdjEtZjU1YzUyNTE4Nzg1YWFjMmJlOTI3NzBiMzdlOTU1NzIwNjUwOTNkYTI1ODdlZWE3YjYwYzYwZDk0NjY5MDE0Yg=='],
+  },
+  // xy 通道：用户自定义 / 获取模型列表时的兜底（透传模型名到 xinyuanai）
   xy: {
     u: 'aHR0cHM6Ly94aW55dWFuYWk2NjYuY29t',
     k: [
@@ -17,40 +37,23 @@ const _P = {
       'c2stcGVYcVdTdnpQbEVYbGZyWllCajRZTFBYZFJqelFoNFQxWVpLUmo4T1JWbWlrZFFT',
     ],
   },
-  ag: {
-    u: 'aHR0cHM6Ly9qb2VsLWFwaS1rZXktcHJveHkuam9lbHRpbmcwMi53b3JrZXJzLmRldi9hZ25lc2Fp',
-    k: ['eHVXako4T1pOTVVWU1gtRjA1c2hJSk41c0hpN0JlX1NrVFROdXFLajFKTQ=='],
-    imagePath: '/images/generations',
-    videoPath: '/videos',
-    chatPath: '/chat/completions',
-  },
-  co: {
-    // Cohere 通道：Command 系列文本对话模型（OpenAI 兼容接口）
-    u: 'aHR0cHM6Ly9hcGkuY29oZXJlLmFpL2NvbXBhdGliaWxpdHk=',
-    k: ['aDRVQzNUVHR3dVdwSEZSYkVPWk9teU40aGlndlNlQWZVeDVsQndobA=='],
-  },
-  or: {
-    // OpenRouter 通道：HY3 等第三方文本模型
-    u: 'aHR0cHM6Ly9vcGVucm91dGVyLmFp',
-    k: ['c2stb3ItdjEtZjU1YzUyNTE4Nzg1YWFjMmJlOTI3NzBiMzdlOTU1NzIwNjUwOTNkYTI1ODdlZWE3YjYwYzYwZDk0NjY5MDE0Yg=='],
-  },
 }
 
 // 对话框中展示的内置模型
-// supportsTools: 是否支持 OpenAI 风格 function calling。
-//   true  → 会在 generateChat 请求里带 tools，模型可主动调 generate_image
-//   false → 不带 tools（多数 Cohere / OpenRouter 免费模型都不支持 tool use，强行传会 400）
-// 自定义预设的 chat 模型也按同样的字段判断（在 ChatPage 中读取 preset.models 的 m.supportsTools）
+// 仅保留 Agnes 系列；Command AI 和 HY3 已下线。
+// 2.0 文本模型（chat）与 2.0 图片模型（image）id 不同、label 明确区分：
+//   agnes-2.0-flash           → 「Agnes 2.0 Flash」      (chat)
+//   agnes-image-2.0-flash     → 「Agnes Image 2.0 Flash」(image)
+//   agnes-image-2.1-flash     → 「Agnes Image 2.1 Flash」(image)
+//   agnes-video-2.0           → 「Agnes Video V2.0」     (video)
 export const BUILTIN_MODELS = [
-  { id: 'command-a-vision', label: 'Command AI', provider: 'co', apiModel: 'command-a-vision-07-2025', desc: 'Cohere 通道 · 视觉文本对话', type: 'chat', chatPath: '/v1/chat/completions', supportsTools: false },
-  { id: 'hy3', label: 'HY3', provider: 'or', apiModel: 'tencent/hy3:free', desc: 'OpenRouter 通道 · 文本对话', type: 'chat', chatPath: '/api/v1/chat/completions', supportsTools: false },
-  { id: 'agnes-image-2.1-flash', label: 'Agnes 2.1 Flash', provider: 'ag', apiModel: 'agnes-image-2.1-flash', desc: 'Agnes 通道 · 快速', type: 'image' },
-  { id: 'agnes-image-2.0-flash', label: 'Agnes 2.0 Flash', provider: 'ag', apiModel: 'agnes-image-2.0-flash', desc: 'Agnes 通道 · 经典', type: 'image' },
-  { id: 'agnes-video-2.0', label: 'Agnes 视频文本', provider: 'ag', apiModel: 'agnes-video-v2.0', desc: 'Agnes 官方视频模型', type: 'video' },
-  { id: 'agnes-2.0-flash', label: 'Agnes 2.0 Flash (文本)', provider: 'ag', apiModel: 'agnes-2.0-flash', desc: 'Agnes 官方文本模型', type: 'chat', supportsTools: false }
+  { id: 'agnes-2.0-flash',         label: 'Agnes 2.0 Flash',       provider: 'ag', apiModel: 'agnes-2.0-flash',         desc: 'Agnes 官方 · 文本对话',         type: 'chat' },
+  { id: 'agnes-image-2.0-flash',   label: 'Agnes Image 2.0 Flash', provider: 'ag', apiModel: 'agnes-image-2.0-flash',   desc: 'Agnes 官方 · 文生图经典',       type: 'image' },
+  { id: 'agnes-image-2.1-flash',   label: 'Agnes Image 2.1 Flash', provider: 'ag', apiModel: 'agnes-image-2.1-flash',   desc: 'Agnes 官方 · 文生图快速',       type: 'image' },
+  { id: 'agnes-video-2.0',         label: 'Agnes Video V2.0',      provider: 'ag', apiModel: 'agnes-video-v2.0',        desc: 'Agnes 官方 · 文生视频',         type: 'video' },
 ]
 
-export const DEFAULT_MODEL = 'command-a-vision'
+export const DEFAULT_MODEL = 'agnes-2.0-flash'
 
 
 // 解析模型 → 通道配置；未知模型走 xy 通道并原样透传模型名
