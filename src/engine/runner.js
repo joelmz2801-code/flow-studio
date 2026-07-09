@@ -56,11 +56,11 @@ async function apiPost(url, apiKey, body, signal) {
   if (!res.ok) {
     // 区分 HTML 响应（Cloudflare/网关拦截）与普通 JSON 错误
     if (/<!doctype html|<html/i.test(text)) {
-      const ct = res.headers.get('content-type') || ''
-      const reason = /cloudflare/i.test(text)
+      const contentType = res.headers.get('content-type') ?? ''
+      const description = /cloudflare/i.test(text)
         ? '被 Cloudflare 防护拦截（请检查 API Key / 网关路径是否正确）'
         : '网关返回了 HTML 页面（可能是 WAF/反代拦截或路径不存在）'
-      throw new Error(`API ${res.status}: ${reason} [${ct}]`)
+      throw new Error(`API ${res.status}: ${description} [${contentType}]`)
     }
     const msg = json?.error?.message || json?.message || text.slice(0, 300)
     throw new Error(`API ${res.status}: ${msg}`)
