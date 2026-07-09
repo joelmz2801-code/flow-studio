@@ -2413,4 +2413,14 @@ textarea { resize: vertical; line-height: 1.5; }
 }
 
 
+/* 手机端对话框圆角，与桌面端同步 */
+@media (max-width: 768px) {
+  .composer,
+  .msg-bubble,
+  .bubble,
+  .chat-input {
+    border-radius: 16px !important;
+  }
+}
+
 
