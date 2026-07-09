@@ -286,7 +286,8 @@ export function resolveModelWithPresets(modelId, presets) {
             chatPath: p.chatPath || '/v1/chat/completions',
             imagePath: p.imagePath || '/v1/images/generations',
             videoPath: p.videoPath || '/v1/videos',
-            type: found.type || 'image'
+            type: found.type || 'image',
+            supportsTools: !!found.supportsTools
           }
         }
       }

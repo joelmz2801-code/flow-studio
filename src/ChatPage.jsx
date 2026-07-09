@@ -126,7 +126,8 @@ export default function ChatPage({ chatId }) {
       label: b.label,
       desc: b.desc,
       type: b.type || 'image',
-      isBuiltin: true
+      isBuiltin: true,
+      supportsTools: !!b.supportsTools
     })
   })
   presets.forEach((p) => {
@@ -138,7 +139,8 @@ export default function ChatPage({ chatId }) {
             label: m.id,
             desc: `${m.type === 'video' ? '视频模型' : m.type === 'chat' ? '文本模型' : m.type === 'image' ? '图片模型' : '未设置类型'} | ${p.name || '自定义'}`,
             type: m.type || null,
-            isBuiltin: false
+            isBuiltin: false,
+            supportsTools: !!m.supportsTools
           })
         }
       })
@@ -422,12 +424,12 @@ export default function ChatPage({ chatId }) {
           .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.text && m.status !== 'loading')
           .map((m) => ({ role: m.role, content: m.text }))
         const chatContext = history.length > 0 ? history : [{ role: 'user', content: prompt }]
-        // 给文本模型注入工具列表，让它知道有 generate_image 可用
+        // 只对支持 tool use 的模型注入工具列表（Cohere Command、OpenRouter hy3 等不支持，强行传会 400）
+        const chatSupportsTools = !!activeModelObj?.supportsTools
         const result = await generateChat({
           messages: chatContext,
           model: activeModel,
-          tools: CHAT_TOOLS,
-          tool_choice: 'auto',
+          ...(chatSupportsTools ? { tools: CHAT_TOOLS, tool_choice: 'auto' } : {}),
         }, controller.signal)
 
         // 工具调用分支：执行 generate_image
@@ -828,13 +830,13 @@ function Message({ m, onDelete, onAddReference, onCopy, onRegenerate }) {
       </div>
       <div className="msg-content">
         <div className="bubble bubble-ai">
-          {m.status === 'loading' && m.mediaType === 'chat' && !m.images && (
+          {m.status === 'loading' && m.mediaType === 'chat' && (!m.images || m.images.length === 0) && (
             <div className="gen-text-loading" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--muted)', fontSize: '13px' }}>
               <span className="spinner spinner-blue" />
               正在思考…
             </div>
           )}
-          {m.status === 'loading' && m.mediaType === 'chat' && m.images && (
+          {m.status === 'loading' && m.mediaType === 'chat' && m.images && m.images.length > 0 && (
             <div className="gen-text-loading" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--muted)', fontSize: '13px' }}>
               <span className="spinner spinner-blue" />
               {m.text || '正在生图…'}

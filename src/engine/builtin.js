@@ -37,13 +37,17 @@ const _P = {
 }
 
 // 对话框中展示的内置模型
+// supportsTools: 是否支持 OpenAI 风格 function calling。
+//   true  → 会在 generateChat 请求里带 tools，模型可主动调 generate_image
+//   false → 不带 tools（多数 Cohere / OpenRouter 免费模型都不支持 tool use，强行传会 400）
+// 自定义预设的 chat 模型也按同样的字段判断（在 ChatPage 中读取 preset.models 的 m.supportsTools）
 export const BUILTIN_MODELS = [
-  { id: 'command-a-vision', label: 'Command AI', provider: 'co', apiModel: 'command-a-vision-07-2025', desc: 'Cohere 通道 · 视觉文本对话', type: 'chat', chatPath: '/v1/chat/completions' },
-  { id: 'hy3', label: 'HY3', provider: 'or', apiModel: 'tencent/hy3:free', desc: 'OpenRouter 通道 · 文本对话', type: 'chat', chatPath: '/api/v1/chat/completions' },
+  { id: 'command-a-vision', label: 'Command AI', provider: 'co', apiModel: 'command-a-vision-07-2025', desc: 'Cohere 通道 · 视觉文本对话', type: 'chat', chatPath: '/v1/chat/completions', supportsTools: false },
+  { id: 'hy3', label: 'HY3', provider: 'or', apiModel: 'tencent/hy3:free', desc: 'OpenRouter 通道 · 文本对话', type: 'chat', chatPath: '/api/v1/chat/completions', supportsTools: false },
   { id: 'agnes-image-2.1-flash', label: 'Agnes 2.1 Flash', provider: 'ag', apiModel: 'agnes-image-2.1-flash', desc: 'Agnes 通道 · 快速', type: 'image' },
   { id: 'agnes-image-2.0-flash', label: 'Agnes 2.0 Flash', provider: 'ag', apiModel: 'agnes-image-2.0-flash', desc: 'Agnes 通道 · 经典', type: 'image' },
   { id: 'agnes-video-2.0', label: 'Agnes 视频文本', provider: 'ag', apiModel: 'agnes-video-v2.0', desc: 'Agnes 官方视频模型', type: 'video' },
-  { id: 'agnes-2.0-flash', label: 'Agnes 2.0 Flash (文本)', provider: 'ag', apiModel: 'agnes-2.0-flash', desc: 'Agnes 官方文本模型', type: 'chat' }
+  { id: 'agnes-2.0-flash', label: 'Agnes 2.0 Flash (文本)', provider: 'ag', apiModel: 'agnes-2.0-flash', desc: 'Agnes 官方文本模型', type: 'chat', supportsTools: false }
 ]
 
 export const DEFAULT_MODEL = 'command-a-vision'
@@ -62,7 +66,8 @@ export function resolveModel(modelId) {
     imagePath: p.imagePath || '/v1/images/generations',
     videoPath: p.videoPath || '/v1/videos',
     chatPath: m?.chatPath || p.chatPath || '/v1/chat/completions',
-    type: m ? m.type : 'image'
+    type: m ? m.type : 'image',
+    supportsTools: m ? !!m.supportsTools : false
   }
 }
 
