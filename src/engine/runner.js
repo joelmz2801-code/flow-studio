@@ -286,9 +286,16 @@ export function resolveModelWithPresets(modelId, presets) {
       if (p.models && Array.isArray(p.models)) {
         const found = p.models.find((m) => m.id === modelId)
         if (found) {
+          // 防御: 自定义预设的 baseUrl 必须以 http(s):// 开头, 否则视为配置错误
+          // 避免 joinUrl('', path) 产生相对路径, 导致请求被错误地打到当前域名
+          const baseUrl = p.baseUrl && /^https?:\/\//.test(p.baseUrl) ? p.baseUrl : ''
+          if (!baseUrl) {
+            // baseUrl 缺失 → 不返回该预设, 继续扫描下一个预设, 最终回退到 builtin
+            continue
+          }
           return {
             providerId: 'custom',
-            baseUrl: p.baseUrl,
+            baseUrl,
             keys: p.apiKey ? p.apiKey.split(',').map(k => k.trim()).filter(Boolean) : [],
             apiModel: found.id,
             chatPath: p.chatPath || '/v1/chat/completions',
@@ -361,12 +368,16 @@ export async function generateImage({ prompt, size, refs = [], model }, signal) 
   if (total === 0) {
     throw new Error('API Key 不能为空，请在设置中配置。')
   }
+  const url = joinUrl(ch.baseUrl, ch.imagePath || '/v1/images/generations')
+  if (!/^https?:\/\//.test(url)) {
+    throw new Error(`预设「${ch.providerId}」的 Base URL 配置无效 (${url})。请在 API 设置中检查对应预设的 Base URL 是否填写了 https:// 开头的完整地址。`)
+  }
   const start = randomKeyIndex(total)
   let lastErr
   for (let i = 0; i < total; i++) {
     const idx = (start + i) % total
     try {
-      const json = await apiPost(joinUrl(ch.baseUrl, ch.imagePath), ch.keys[idx], body, signal)
+      const json = await apiPost(url, ch.keys[idx], body, signal)
       const img = extractImage(json)
       if (!img) throw new Error('响应中未找到图片: ' + JSON.stringify(json).slice(0, 200))
       return img
@@ -393,6 +404,9 @@ export async function generateVideo({ prompt, model, refImage }, signal) {
   }
 
   const url = joinUrl(ch.baseUrl, ch.videoPath || '/v1/videos')
+  if (!/^https?:\/\//.test(url)) {
+    throw new Error(`预设「${ch.providerId}」的 Base URL 配置无效 (${url})。请在 API 设置中检查对应预设的 Base URL 是否填写了 https:// 开头的完整地址。`)
+  }
   const start = randomKeyIndex(total)
   let lastErr
   for (let i = 0; i < total; i++) {
@@ -495,6 +509,9 @@ export async function generateChat({ messages, model, tools, tool_choice }, sign
     if (tool_choice) body.tool_choice = tool_choice
   }
   const url = joinUrl(ch.baseUrl, ch.chatPath || '/v1/chat/completions')
+  if (!/^https?:\/\//.test(url)) {
+    throw new Error(`预设「${ch.providerId}」的 Base URL 配置无效 (${url})。请在 API 设置中检查对应预设的 Base URL 是否填写了 https:// 开头的完整地址。`)
+  }
   const total = ch.keys.length
   if (total === 0) {
     throw new Error('API Key 不能为空，请在设置中配置。')
