@@ -1,0 +1,84 @@
+/* ═══════════════════════════════════════════════════════
+   Flow Studio · UI 优化补丁 (ui-patch.css)
+   在 main.jsx 中于 styles.css 之后引入，靠层叠顺序覆盖。
+   目标：手机端体验对齐桌面端 + 全局细节打磨。
+   ═══════════════════════════════════════════════════════ */
+
+/* ── 1. 手机端对话框 / 气泡 / 输入框统一圆角 ──
+   桌面端已有圆角，手机端此前被全宽铺满逻辑压成直角，这里补齐。 */
+@media (max-width: 768px) {
+  .composer, .chat-input, .input-bar, .input-wrap, .composer-inner,
+  .chat-composer, .prompt-bar, .prompt-input,
+  .bubble, .msg, .msg-bubble, .chat-bubble,
+  .message, .message-bubble, .msg-user, .msg-ai, .msg-content {
+    border-radius: 18px !important;
+  }
+  /* 输入区外壳留出边距，避免贴边直角观感 */
+  .composer, .chat-input, .input-bar, .composer-inner, .prompt-bar {
+    margin-left: 10px !important;
+    margin-right: 10px !important;
+    margin-bottom: 10px !important;
+  }
+  /* 输入框内的 textarea 也跟随圆角 */
+  .composer textarea, .chat-input textarea, .prompt-bar textarea {
+    border-radius: 14px !important;
+  }
+}
+
+/* ── 2. 手机端设置弹窗：左右分栏 → 上下堆叠，不再挤爆 ── */
+@media (max-width: 768px) {
+  .modal-body { flex-direction: column !important; }
+  .preset-list {
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    max-height: 180px !important;
+  }
+  .preset-form { padding: 16px !important; }
+  .f-row { flex-direction: column !important; gap: 8px !important; }
+  .field-row { flex-direction: column !important; }
+  .settings-tabs { padding: 10px 14px 0 !important; overflow-x: auto !important; }
+  .modal { width: 100vw !important; max-width: 100vw !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; }
+}
+
+/* ── 3. 手机端字号加大，告别眯眼 ── */
+@media (max-width: 768px) {
+  .field-label, .node-subtitle, .port-label,
+  .hint, .palette-desc, .preset-url, .file-name { font-size: 12px !important; }
+  /* 输入类控件用 16px，防止 iOS Safari 聚焦时自动放大页面 */
+  input, textarea, select { font-size: 16px !important; }
+}
+
+/* ── 4. 视口高度用 dvh，地址栏弹出不再跳动 ── */
+.main-area { height: 100dvh !important; }
+
+/* ── 5. 弹层 / 下拉在小屏不溢出，可滚动 ── */
+@media (max-width: 768px) {
+  [class*="popover"], [class*="dropdown"], [class*="-pop"], [class*="menu-panel"] {
+    max-height: 60vh !important;
+    max-width: 92vw !important;
+    overflow-y: auto !important;
+  }
+}
+
+/* ── 6. 触摸目标放大：图标按钮在手机上更好点 ── */
+@media (max-width: 768px) {
+  .icon-btn { width: 40px !important; height: 40px !important; }
+  .mini-btn { width: 38px !important; height: 38px !important; }
+}
+
+/* ── 7. 焦点可见性（无障碍）：键盘 Tab 时给清晰描边 ── */
+button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ── 8. 减少动效偏好：尊重系统「减弱动态效果」设置 ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
