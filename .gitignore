@@ -5,3 +5,9 @@ dist
 .env
 .env.local
 .env.*.local
+
+# 临时调试文件（AI 协作 / 手动抓的响应 / 截图）
+AI 提示词.txt
+diff_chat.txt
+*.diff.txt
+debug-*.txt
