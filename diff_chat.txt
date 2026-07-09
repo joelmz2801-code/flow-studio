@@ -1,0 +1,7 @@
+﻿git : warning: in the working copy of 'src/ChatPage.jsx', LF will be replaced by CRLF the next time Git touches it
+At line:15 char:4683
++ ... t stash list ; git diff src/ChatPage.jsx > diff_chat.txt 2>&1 ; Get-C ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

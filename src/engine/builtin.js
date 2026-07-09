@@ -12,9 +12,10 @@ const _P = {
   ag: {
     u: 'aHR0cHM6Ly9qb2VsLWFwaS1rZXktcHJveHkuam9lbHRpbmcwMi53b3JrZXJzLmRldi9hZ25lc2Fp',
     k: ['eHVXako4T1pOTVVWU1gtRjA1c2hJSk41c0hpN0JlX1NrVFROdXFLajFKTQ=='],
-    imagePath: '/images/generations',
-    videoPath: '/videos',
-    chatPath: '/chat/completions',
+    // 后端真实路径都是 /v1/*，之前漏写 /v1 前缀导致 404 触发 Cloudflare Bot 防护
+    imagePath: '/v1/images/generations',
+    videoPath: '/v1/videos',
+    chatPath: '/v1/chat/completions',
   },
   // 兼容保留：旧消息中可能仍引用 Command / HY3
   co: {
