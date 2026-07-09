@@ -502,10 +502,14 @@ export default function ChatPage({ chatId }) {
 
 
   const onKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      send()
-    }
+    // 中文/日文输入法选词阶段, Enter 用于确认候选词而非提交
+    // nativeEvent.isComposing 覆盖 React 17 之前的版本; e.isComposing 覆盖 React 18+
+    // 任一为 true 时, 不触发 send, 避免"你好"等输入被误判为提交指令
+    if (e.key !== 'Enter' || e.shiftKey) return
+    if (e.nativeEvent?.isComposing || e.isComposing) return
+    if (e.keyCode === 229) return // 兜底: 部分浏览器在 IME 期间 keyCode 固定为 229
+    e.preventDefault()
+    send()
   }
 
   const messages = chat?.messages || []
@@ -670,7 +674,11 @@ export default function ChatPage({ chatId }) {
                     value={modelQuery}
                     autoFocus
                     onChange={(e) => setModelQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && modelQuery.trim() && pickModel(modelQuery.trim())}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter' || !modelQuery.trim()) return
+                      if (e.nativeEvent?.isComposing || e.isComposing || e.keyCode === 229) return
+                      pickModel(modelQuery.trim())
+                    }}
                   />
                   <div className="model-list">
                     {(() => {
