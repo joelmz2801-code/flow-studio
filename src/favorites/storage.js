@@ -1,51 +1,46 @@
 const DB_NAME = 'joel-flow-studio-favorites'
-const STORE = 'images'
-const VERSION = 1
+const DB_VERSION = 2
+const FAVORITES_STORE = 'images'
+const SETTINGS_STORE = 'settings'
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, VERSION)
+    const request = indexedDB.open(DB_NAME, DB_VERSION)
     request.onupgradeneeded = () => {
       const db = request.result
-      if (!db.objectStoreNames.contains(STORE)) {
-        const store = db.createObjectStore(STORE, { keyPath: 'id' })
+      if (!db.objectStoreNames.contains(FAVORITES_STORE)) {
+        const store = db.createObjectStore(FAVORITES_STORE, { keyPath: 'id' })
         store.createIndex('source', 'source', { unique: true })
       }
+      if (!db.objectStoreNames.contains(SETTINGS_STORE)) db.createObjectStore(SETTINGS_STORE)
     }
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
   })
 }
 
-function transact(mode, action) {
-  return openDatabase().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, mode)
-    const store = tx.objectStore(STORE)
-    let result
-    try { result = action(store) } catch (error) { reject(error); return }
-    tx.oncomplete = () => resolve(result?.result)
-    tx.onerror = () => reject(tx.error)
-  }))
-}
-
-export function listFavorites() {
-  return transact('readonly', (store) => store.getAll()).then((items = []) =>
-    items.sort((a, b) => b.createdAt - a.createdAt),
-  )
-}
-
-export function addFavorite(item) {
-  return transact('readwrite', (store) => store.put(item))
-}
-
-export function removeFavorite(id) {
-  return transact('readwrite', (store) => store.delete(id))
-}
-
-export function findBySource(source) {
-  return openDatabase().then((db) => new Promise((resolve, reject) => {
-    const request = db.transaction(STORE, 'readonly').objectStore(STORE).index('source').get(source)
-    request.onsuccess = () => resolve(request.result || null)
+function requestResult(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
-  }))
+  })
 }
+
+async function withStore(name, mode, action) {
+  const db = await openDatabase()
+  const tx = db.transaction(name, mode)
+  const result = await action(tx.objectStore(name))
+  return result
+}
+
+export async function listFavorites() {
+  const items = await withStore(FAVORITES_STORE, 'readonly', (store) => requestResult(store.getAll()))
+  return (items || []).sort((a, b) => b.createdAt - a.createdAt)
+}
+
+export const addFavorite = (item) => withStore(FAVORITES_STORE, 'readwrite', (store) => requestResult(store.put(item)))
+export const removeFavorite = (id) => withStore(FAVORITES_STORE, 'readwrite', (store) => requestResult(store.delete(id)))
+export const findBySource = (source) => withStore(FAVORITES_STORE, 'readonly', (store) => requestResult(store.index('source').get(source)))
+export const saveDownloadFolder = (handle) => withStore(SETTINGS_STORE, 'readwrite', (store) => requestResult(store.put(handle, 'downloadFolder')))
+export const getDownloadFolder = () => withStore(SETTINGS_STORE, 'readonly', (store) => requestResult(store.get('downloadFolder')))
+export const clearDownloadFolder = () => withStore(SETTINGS_STORE, 'readwrite', (store) => requestResult(store.delete('downloadFolder')))
