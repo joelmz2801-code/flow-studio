@@ -9,7 +9,7 @@ const FAVORITE_ATTR = 'data-jfs-favorite-action'
 const SETTINGS_ATTR = 'data-jfs-unified-settings'
 const FOLDER_TAB_ATTR = 'data-jfs-folder-tab'
 
-const heartSvg = (filled = false) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8"/></svg>`
+const heartSvg = (filled = false) => `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.9"/></svg>`
 
 function imageSource(image) { return image.currentSrc || image.src || '' }
 
@@ -40,14 +40,21 @@ function fileExtension(source, type) {
   return 'png'
 }
 
-// 一次性注入隐藏原生「账户设置 / API 设置」入口的样式，
-// 用 CSS 而不是 JS 属性，避免 React 重渲染后反复显隐造成抖动。
+// 用 CSS 隐藏原生「账户设置 / API 设置」入口，避免 React 重渲染反复显隐造成抖动。
 function ensureHideStyle() {
   if (document.getElementById('jfs-hide-native-settings')) return
   const style = document.createElement('style')
   style.id = 'jfs-hide-native-settings'
   style.textContent = '.sidebar .sb-foot .sb-item.sb-settings:not([' + SETTINGS_ATTR + ']){display:none!important}'
   document.head.appendChild(style)
+}
+
+// 在一条消息的操作栏里找到「参考图 / 重新生成」那个箭头图标按钮作为锚点。
+function findAnchorButton(message) {
+  const buttons = [...message.querySelectorAll('button')].filter((b) => !b.matches(`[${FAVORITE_ATTR}]`))
+  const byTitle = buttons.find((b) => /重新生成|参考图/.test(b.title || b.getAttribute('aria-label') || ''))
+  if (byTitle) return byTitle
+  return buttons.find((b) => /复制/.test(b.title || b.getAttribute('aria-label') || '')) || null
 }
 
 export default function FavoritesFeature() {
@@ -196,27 +203,32 @@ export default function FavoritesFeature() {
       document.querySelectorAll('img').forEach((image) => {
         if (!isPhoto(image)) return
         const source = imageSource(image)
-        const frame = image.parentElement
-        if (!frame || frame.querySelector(`:scope > [${FAVORITE_ATTR}]`)) return
-        frame.classList.add('jfs-photo-frame')
+        const message = image.closest('.msg, .message, [class*="message"], [class*="assistant"]')
+        if (!message) return
+        const anchor = findAnchorButton(message)
+        if (!anchor) return
+        const toolbar = anchor.parentElement
+        if (!toolbar || toolbar.querySelector(`[${FAVORITE_ATTR}]`)) return
         const button = document.createElement('button')
         button.type = 'button'
-        button.className = 'jfs-photo-favorite'
+        button.className = anchor.className
+        button.classList.add('jfs-favorite-icon')
         button.setAttribute(FAVORITE_ATTR, 'true')
         const saved = favoritesRef.current.some((item) => item.source === source)
         button.classList.toggle('is-saved', saved)
-        button.innerHTML = `${heartSvg(saved)}<span>${saved ? '已收藏' : '收藏'}</span>`
+        button.title = saved ? '取消收藏' : '收藏'
+        button.setAttribute('aria-label', button.title)
+        button.innerHTML = heartSvg(saved)
         button.onclick = (event) => {
           event.preventDefault()
           event.stopPropagation()
-          const message = image.closest('.msg, .message, [class*="message"]')
-          toggleFavorite(source, message?.textContent || '').catch(() => notify('收藏失败'))
+          toggleFavorite(source, message.textContent || '').catch(() => notify('收藏失败'))
         }
-        frame.appendChild(button)
+        toolbar.insertBefore(button, anchor)
       })
     }
 
-    // 写 DOM 时先断开观察，写完丢弃自己触发的记录再重连，彻底避免自激发死循环（卡顿根源）。
+    // 写 DOM 前先断开观察，写完丢弃自己触发的记录再重连，彻底避免自激发死循环。
     let scheduled = null
     const runWrites = () => {
       scheduled = null
@@ -248,14 +260,17 @@ export default function FavoritesFeature() {
     const count = document.querySelector('.jfs-favorites-count')
     if (count) count.textContent = favorites.length ? String(favorites.length) : ''
     document.querySelectorAll(`[${FAVORITE_ATTR}]`).forEach((button) => {
-      const image = button.parentElement?.querySelector('img')
+      const message = button.closest('.msg, .message, [class*="message"], [class*="assistant"]')
+      const image = message?.querySelector('img')
       const saved = image && favorites.some((item) => item.source === imageSource(image))
       button.classList.toggle('is-saved', Boolean(saved))
-      button.innerHTML = `${heartSvg(Boolean(saved))}<span>${saved ? '已收藏' : '收藏'}</span>`
+      button.title = saved ? '取消收藏' : '收藏'
+      button.setAttribute('aria-label', button.title)
+      button.innerHTML = heartSvg(Boolean(saved))
     })
   }, [favorites])
 
-  // 自动退出：点击侧边栏任意对话/页面项或按 Esc 就关闭收藏夹，不再依赖 X。
+  // 自动退出：点左侧任意对话/页面项或按 Esc 就关闭收藏夹。
   useEffect(() => {
     if (!favoritesOpen) return
     const onClick = (event) => {
@@ -301,7 +316,7 @@ function FavoritesPage({ favorites, onClose, onRemove }) {
   return (
     <section className="jfs-favorites-page" aria-label="收藏夹">
       <header><div><span>MY LIBRARY</span><h1>收藏夹</h1><p>{favorites.length ? `${favorites.length} 张已收藏照片，点左侧任意对话即可返回` : '喜欢的照片会保存在这台设备上'}</p></div></header>
-      {favorites.length === 0 ? <div className="jfs-favorites-empty"><div dangerouslySetInnerHTML={{ __html: heartSvg(false) }} /><h2>还没有收藏</h2><p>生成喜欢的照片后，点击图片右下角的收藏按钮。</p><button onClick={onClose}>返回创作</button></div> : <main>{favorites.map((item) => <article key={item.id}><img src={item.source} alt={item.prompt || '收藏照片'} /><div><time>{new Date(item.createdAt).toLocaleString()}</time>{item.prompt && <p>{item.prompt}</p>}<button onClick={() => onRemove(item.id)}>移除收藏</button></div></article>)}</main>}
+      {favorites.length === 0 ? <div className="jfs-favorites-empty"><div dangerouslySetInnerHTML={{ __html: heartSvg(false) }} /><h2>还没有收藏</h2><p>生成喜欢的照片后，点击图片操作栏里的小爱心。</p><button onClick={onClose}>返回创作</button></div> : <main>{favorites.map((item) => <article key={item.id}><img src={item.source} alt={item.prompt || '收藏照片'} /><div><time>{new Date(item.createdAt).toLocaleString()}</time>{item.prompt && <p>{item.prompt}</p>}<button onClick={() => onRemove(item.id)}>移除收藏</button></div></article>)}</main>}
     </section>
   )
 }
