@@ -8,7 +8,7 @@ const newBlockStart = ' // Auto 模式智能画幅：先尊重明确比例，再
 
 if (source.includes(oldBlockStart)) {
   const start = source.indexOf(oldBlockStart)
-  const end = source.indexOf('\n\n const send = async', start)
+  const end = source.indexOf(' const send = async', start)
   if (end < 0) throw new Error('Could not locate Auto ratio block end')
 
   const replacement = ` // Auto 模式智能画幅：先尊重明确比例，再按主体、构图和投放场景判断。
@@ -29,7 +29,9 @@ if (source.includes(oldBlockStart)) {
  if (/(产品|静物|美食|菜品|室内|建筑|街景|店铺|电商|product|still life|food|interior|architecture)/i.test(t)) return pick('4:3')
 
  return pick('4:3')
- }`
+ }
+
+`
 
   source = source.slice(0, start) + replacement + source.slice(end)
 }
