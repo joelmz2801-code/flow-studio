@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "prepare:source": "node scripts/apply-auto-ratio-fix.mjs && node scripts/disable-system-prompt-injection.mjs && node scripts/add-command-image-translation.mjs",
+    "prepare:source": "node scripts/apply-auto-ratio-fix.mjs && node scripts/disable-system-prompt-injection.mjs && node scripts/add-command-image-translation.mjs && node scripts/fix-settings-content-layout.mjs",
     "predev": "npm run prepare:source",
     "dev": "vite",
     "prebuild": "npm run prepare:source",
