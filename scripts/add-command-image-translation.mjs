@@ -38,8 +38,7 @@ if (!runner.includes('async function translateImagePromptWithCommand')) {
   if (index < 0) throw new Error('Could not locate generateImage')
   const helper = `async function translateImagePromptWithCommand(prompt, signal) {
  const source = String(prompt || '').trim()
- if (!source) return source
- if (!/[\\u3400-\\u9fff]/.test(source)) return source
+ if (!source || !/[\\u3400-\\u9fff]/.test(source)) return source
 
  const translator = resolveCommandTranslator()
  if (!translator.keys.length) return source
@@ -73,10 +72,12 @@ if (!runner.includes('async function translateImagePromptWithCommand')) {
   runner = runner.slice(0, index) + helper + runner.slice(index)
 }
 
-runner = runner.replace(
-  "// 不再做中文→英文翻译，直接把原始 prompt 交给生图 API\n const finalPrompt = prompt",
-  "// 中文提示词先由 Command 忠实翻译为英文；翻译服务不可用时回退原文。\n const finalPrompt = await translateImagePromptWithCommand(prompt, signal)",
-)
+if (!runner.includes('await translateImagePromptWithCommand(prompt, signal)')) {
+  runner = runner.replace(
+    ' const finalPrompt = prompt',
+    ' const finalPrompt = await translateImagePromptWithCommand(prompt, signal)',
+  )
+}
 
 if (!runner.includes('await translateImagePromptWithCommand(prompt, signal)')) {
   throw new Error('Command image translation was not applied')
