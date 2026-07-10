@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react'
+import { useStore, clearUserData } from './store.js'
 import {
-  useStore,
-  syncFromCloud,
-  clearUserData,
-  applyRealtimeChatChange,
-  applyRealtimePresetChange,
-  applyRealtimeCustomPromptChange,
-} from './store.js'
+  syncFromCloudSafely,
+  applyRealtimeChatChangeSafely,
+  applyRealtimePresetChangeSafely,
+  applyRealtimeCustomPromptChangeSafely,
+  resetSafeSync,
+} from './safeSync.js'
 import { useAuth } from './useAuth.js'
 import { subscribeToChanges } from './lib/sync.js'
 import Sidebar from './Sidebar.jsx'
@@ -16,24 +16,25 @@ import PromptLibrary from './PromptLibrary.jsx'
 import AuthPage from './AuthPage.jsx'
 
 export default function App() {
-  const activeView = useStore((s) => s.activeView)
-  const mobileNavOpen = useStore((s) => s.mobileNavOpen)
-  const setMobileNavOpen = useStore((s) => s.setMobileNavOpen)
+  const activeView = useStore((state) => state.activeView)
+  const mobileNavOpen = useStore((state) => state.mobileNavOpen)
+  const setMobileNavOpen = useStore((state) => state.setMobileNavOpen)
   const { user, loading, isAuthEnabled } = useAuth()
 
   useEffect(() => {
     if (!user) {
+      resetSafeSync()
       clearUserData()
       return
     }
-    syncFromCloud(user.id)
-    const unsub = subscribeToChanges(
+
+    syncFromCloudSafely(user.id)
+    return subscribeToChanges(
       user.id,
-      (payload) => applyRealtimeChatChange(payload),
-      (payload) => applyRealtimePresetChange(payload),
-      (payload) => applyRealtimeCustomPromptChange(payload),
+      applyRealtimeChatChangeSafely,
+      applyRealtimePresetChangeSafely,
+      applyRealtimeCustomPromptChangeSafely,
     )
-    return unsub
   }, [user?.id])
 
   if (loading) {
@@ -60,7 +61,7 @@ export default function App() {
       {mobileNavOpen && <div className="nav-backdrop" onClick={() => setMobileNavOpen(false)} />}
       <Sidebar />
       <div className="main-area">
-        <ChatPage chatId={activeView.id} />
+        <ChatPage chatId={activeView?.type === 'chat' ? activeView.id : null} />
       </div>
       <SettingsModal />
       <PromptLibrary />
