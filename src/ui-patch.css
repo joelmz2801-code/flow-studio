@@ -1,11 +1,5 @@
-/* ═══════════════════════════════════════════════════════
- Flow Studio · UI 优化补丁 (ui-patch.css)
- 在 main.jsx 中于 styles.css 之后引入，靠层叠顺序覆盖。
- 目标：手机端体验对齐桌面端 + 全局细节打磨。
- ═══════════════════════════════════════════════════════ */
+/* Flow Studio UI refinements */
 
-/* ── 1. 手机端对话框 / 气泡 / 输入框统一圆角 ──
- 桌面端已有圆角，手机端此前被全宽铺满逻辑压成直角，这里补齐。 */
 @media (max-width: 768px) {
  .composer, .chat-input, .input-bar, .input-wrap, .composer-inner,
  .chat-composer, .prompt-bar, .prompt-input,
@@ -18,60 +12,25 @@
  margin-right: 10px !important;
  margin-bottom: 10px !important;
  }
- .composer textarea, .chat-input textarea, .prompt-bar textarea {
- border-radius: 14px !important;
- }
-}
-
-/* ── 2. 手机端设置弹窗：左右分栏 → 上下堆叠，不再挤爆 ── */
-@media (max-width: 768px) {
- .modal-body { flex-direction: column !important; }
- .preset-list {
- width: 100% !important;
- border-right: none !important;
- border-bottom: 1px solid var(--border) !important;
- max-height: 180px !important;
- }
- .preset-form { padding: 16px !important; }
- .f-row { flex-direction: column !important; gap: 8px !important; }
- .field-row { flex-direction: column !important; }
- .settings-tabs { padding: 10px 14px 0 !important; overflow-x: auto !important; }
- .modal { width: 100vw !important; max-width: 100vw !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; }
-}
-
-/* ── 3. 手机端字号加大，告别眯眼 ── */
-@media (max-width: 768px) {
- .field-label, .node-subtitle, .port-label,
- .hint, .palette-desc, .preset-url, .file-name { font-size: 12px !important; }
+ .composer textarea, .chat-input textarea, .prompt-bar textarea { border-radius: 14px !important; }
+ .field-label, .node-subtitle, .port-label, .hint, .palette-desc, .preset-url, .file-name { font-size: 12px !important; }
  input, textarea, select { font-size: 16px !important; }
-}
-
-/* ── 4. 视口高度用 dvh，地址栏弹出不再跳动 ── */
-.main-area { height: 100dvh !important; }
-
-/* ── 5. 弹层 / 下拉在小屏不溢出，可滚动 ── */
-@media (max-width: 768px) {
  [class*="popover"], [class*="dropdown"], [class*="-pop"], [class*="menu-panel"] {
  max-height: 60vh !important;
  max-width: 92vw !important;
  overflow-y: auto !important;
  }
-}
-
-/* ── 6. 触摸目标放大：图标按钮在手机上更好点 ── */
-@media (max-width: 768px) {
  .icon-btn { width: 40px !important; height: 40px !important; }
  .mini-btn { width: 38px !important; height: 38px !important; }
 }
 
-/* ── 7. 焦点可见性（无障碍）：键盘 Tab 时给清晰描边 ── */
+.main-area { height: 100dvh !important; }
 button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
  outline: 2px solid var(--blue);
  outline-offset: 2px;
  border-radius: 8px;
 }
 
-/* ── 8. 减少动效偏好：尊重系统「减弱动态效果」设置 ── */
 @media (prefers-reduced-motion: reduce) {
  *, *::before, *::after {
  animation-duration: 0.001ms !important;
@@ -80,210 +39,381 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
  }
 }
 
-/* ═══════════════════════════════════════════════════════
- Workflow nodes v3
- Restrained palette, stronger hierarchy, cleaner ports.
- ═══════════════════════════════════════════════════════ */
-.canvas {
- --flow-ink: oklch(27% 0.025 264);
- --flow-muted: oklch(54% 0.025 264);
- --flow-line: oklch(90% 0.012 264);
- --flow-surface: oklch(99% 0.006 264);
- --flow-field: oklch(97% 0.009 264);
- --flow-accent: oklch(56% 0.19 264);
- --flow-accent-soft: oklch(95% 0.032 264);
- background: oklch(97.5% 0.008 264);
+/* API settings workspace */
+.modal-settings-split {
+ --settings-ink: oklch(27% 0.024 275);
+ --settings-muted: oklch(53% 0.022 275);
+ --settings-line: oklch(90% 0.012 275);
+ --settings-line-strong: oklch(84% 0.02 275);
+ --settings-canvas: oklch(97.5% 0.008 275);
+ --settings-surface: oklch(99% 0.005 275);
+ --settings-soft: oklch(95.5% 0.018 275);
+ --settings-accent: oklch(55% 0.19 275);
+ --settings-accent-hover: oklch(49% 0.2 275);
+ --settings-accent-soft: oklch(95% 0.035 275);
+ color: var(--settings-ink);
+ background: var(--settings-canvas);
+ width: min(1240px, calc(100vw - 48px));
+ height: min(900px, calc(100dvh - 48px));
+ max-width: 1240px;
+ max-height: 900px;
+ border: 1px solid var(--settings-line);
+ border-radius: 22px;
+ box-shadow: 0 24px 72px oklch(27% 0.024 275 / 0.16);
 }
 
-.react-flow__background pattern circle {
- fill: oklch(83% 0.018 264);
+.modal-settings-split .modal-header {
+ min-height: 76px;
+ padding: 20px 24px 16px;
+ align-items: center;
+ background: var(--settings-surface);
+ border-bottom: 1px solid var(--settings-line);
+}
+.modal-settings-split .modal-header h2 {
+ margin: 0;
+ font-size: 20px;
+ line-height: 1.2;
+ font-weight: 740;
+ letter-spacing: -0.025em;
+ color: var(--settings-ink);
+}
+.modal-settings-split .modal-header p {
+ margin: 5px 0 0;
+ font-size: 12px;
+ line-height: 1.45;
+ color: var(--settings-muted);
+}
+.modal-settings-split .modal-header .icon-btn {
+ width: 40px;
+ height: 40px;
+ border: 1px solid transparent;
+ border-radius: 11px;
+ transition: transform 120ms cubic-bezier(0.22, 1, 0.36, 1), background 120ms linear, border-color 120ms linear;
+}
+.modal-settings-split .modal-header .icon-btn:hover {
+ transform: translateY(-1px);
+ background: var(--settings-soft);
+ border-color: var(--settings-line);
 }
 
-.node-card {
- width: 296px;
- color: var(--flow-ink);
- background: var(--flow-surface);
- border: 1px solid var(--flow-line);
- border-radius: 18px;
- box-shadow: 0 1px 2px oklch(27% 0.025 264 / 0.05), 0 10px 28px oklch(27% 0.025 264 / 0.06);
- overflow: visible;
- transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 120ms linear;
+.modal-settings-split .settings-tabs {
+ min-height: 52px;
+ padding: 8px 24px 0;
+ gap: 24px;
+ background: var(--settings-surface);
+ border-bottom: 1px solid var(--settings-line);
+}
+.modal-settings-split .settings-tab {
+ min-height: 44px;
+ padding: 0 2px;
+ gap: 7px;
+ border-radius: 0;
+ font-size: 13px;
+ font-weight: 650;
+ color: var(--settings-muted);
+}
+.modal-settings-split .settings-tab:hover { color: var(--settings-ink); }
+.modal-settings-split .settings-tab.active { color: var(--settings-accent); }
+.modal-settings-split .settings-tab.active::after {
+ left: 0;
+ right: 0;
+ height: 3px;
+ border-radius: 3px 3px 0 0;
+ background: var(--settings-accent);
 }
 
-.node-card:hover {
- transform: translateY(-2px);
- border-color: oklch(82% 0.045 264);
- box-shadow: 0 2px 4px oklch(27% 0.025 264 / 0.05), 0 18px 42px oklch(27% 0.025 264 / 0.10);
-}
-
-.react-flow__node.selected .node-card {
- border-color: var(--flow-accent);
- box-shadow: 0 0 0 3px oklch(56% 0.19 264 / 0.14), 0 18px 42px oklch(27% 0.025 264 / 0.10);
-}
-
-.node-header,
-.accent-blue .node-header,
-.accent-red .node-header,
-.accent-yellow .node-header,
-.accent-green .node-header,
-.accent-purple .node-header,
-.accent-teal .node-header {
- min-height: 64px;
- padding: 14px 16px;
- gap: 12px;
- background: var(--flow-surface);
- border-bottom: 1px solid var(--flow-line);
- border-radius: 18px 18px 0 0;
-}
-
-.node-icon {
+.modal-settings-split .modal-body {
  display: grid;
- place-items: center;
- width: 34px;
- height: 34px;
- flex: 0 0 34px;
- font-size: 17px;
- border-radius: 10px;
- background: var(--flow-accent-soft);
+ grid-template-columns: 280px minmax(0, 1fr);
+ min-height: 0;
+ background: var(--settings-canvas);
 }
 
-.accent-red .node-icon { background: oklch(95% 0.035 25); }
-.accent-yellow .node-icon { background: oklch(95% 0.055 85); }
-.accent-green .node-icon { background: oklch(95% 0.04 150); }
-.accent-purple .node-icon { background: oklch(95% 0.04 300); }
-.accent-teal .node-icon { background: oklch(95% 0.035 190); }
+.modal-settings-split .preset-list {
+ width: auto;
+ min-width: 0;
+ padding: 20px 16px;
+ gap: 8px;
+ background: oklch(96.5% 0.012 275);
+ border-right: 1px solid var(--settings-line);
+ scrollbar-gutter: stable;
+}
+.modal-settings-split .preset-view-toggle {
+ padding: 4px;
+ margin: 0 0 12px;
+ gap: 4px;
+ border: 1px solid var(--settings-line);
+ border-radius: 12px;
+ background: var(--settings-surface);
+}
+.modal-settings-split .preset-view-btn {
+ min-height: 36px;
+ border-radius: 8px;
+ font-size: 12px;
+ font-weight: 680;
+ color: var(--settings-muted);
+}
+.modal-settings-split .preset-view-btn.active {
+ color: var(--settings-ink);
+ background: var(--settings-accent-soft);
+ box-shadow: none;
+}
+.modal-settings-split .preset-item {
+ position: relative;
+ min-height: 62px;
+ padding: 11px 12px;
+ gap: 4px;
+ border: 1px solid transparent;
+ border-radius: 12px;
+ background: transparent;
+ transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1), background 120ms linear, border-color 120ms linear;
+}
+.modal-settings-split .preset-item:hover {
+ transform: translateY(-1px);
+ background: var(--settings-surface);
+ border-color: var(--settings-line);
+}
+.modal-settings-split .preset-item.active {
+ color: var(--settings-ink);
+ background: var(--settings-surface);
+ border-color: oklch(82% 0.075 275);
+ box-shadow: 0 5px 16px oklch(27% 0.024 275 / 0.06);
+}
+.modal-settings-split .preset-name {
+ font-size: 13px;
+ line-height: 1.35;
+ font-weight: 710;
+ color: var(--settings-ink);
+}
+.modal-settings-split .preset-url {
+ max-width: 220px;
+ font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+ font-size: 10px;
+ line-height: 1.35;
+ color: var(--settings-muted);
+}
+.modal-settings-split .preset-add {
+ min-height: 44px;
+ margin-top: 8px;
+ border: 1px dashed var(--settings-line-strong);
+ border-radius: 12px;
+ color: var(--settings-accent);
+ background: transparent;
+}
+.modal-settings-split .preset-add:hover {
+ background: var(--settings-accent-soft);
+ border-color: var(--settings-accent);
+}
 
-.node-title {
- font-size: 14px;
- line-height: 1.25;
+.modal-settings-split .preset-form {
+ width: 100%;
+ max-width: 920px;
+ padding: 28px clamp(24px, 4vw, 52px) 48px;
+ gap: 20px;
+ margin: 0 auto;
+ scrollbar-gutter: stable;
+}
+.modal-settings-split .preset-form > * { flex-shrink: 0; }
+.modal-settings-split .f,
+.modal-settings-split .field { gap: 7px; }
+.modal-settings-split .f > span,
+.modal-settings-split .field-label {
+ font-size: 11px;
+ line-height: 1.3;
+ font-weight: 690;
+ letter-spacing: 0.055em;
+ text-transform: uppercase;
+ color: var(--settings-muted);
+}
+.modal-settings-split .f-row { gap: 16px; }
+.modal-settings-split input,
+.modal-settings-split textarea,
+.modal-settings-split select {
+ min-height: 44px;
+ padding: 10px 12px;
+ border: 1px solid var(--settings-line-strong);
+ border-radius: 11px;
+ color: var(--settings-ink);
+ background: var(--settings-surface);
+ font-size: 13px;
+ line-height: 1.5;
+ transition: border-color 120ms linear, box-shadow 120ms linear, background 120ms linear;
+}
+.modal-settings-split input:hover,
+.modal-settings-split textarea:hover,
+.modal-settings-split select:hover { border-color: oklch(76% 0.04 275); }
+.modal-settings-split input:focus,
+.modal-settings-split textarea:focus,
+.modal-settings-split select:focus {
+ border-color: var(--settings-accent);
+ box-shadow: 0 0 0 3px oklch(55% 0.19 275 / 0.12);
+ background: var(--settings-surface);
+}
+.modal-settings-split input::placeholder,
+.modal-settings-split textarea::placeholder { color: oklch(67% 0.02 275); }
+.modal-settings-split .mono,
+.modal-settings-split [class*="url"],
+.modal-settings-split [class*="path"] input {
+ font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+ font-variant-ligatures: none;
+}
+
+.modal-settings-split button:not(.settings-tab):not(.preset-item):not(.preset-view-btn) {
+ min-height: 40px;
+ border-radius: 10px;
+ font-weight: 650;
+}
+.modal-settings-split .btn-primary {
+ min-height: 44px;
+ padding: 0 18px;
+ color: oklch(98% 0.005 275);
+ background: var(--settings-accent);
+ border-radius: 11px;
+ box-shadow: none;
+}
+.modal-settings-split .btn-primary:hover:not(:disabled) {
+ transform: translateY(-1px);
+ background: var(--settings-accent-hover);
+ box-shadow: 0 8px 20px oklch(55% 0.19 275 / 0.18);
+}
+.modal-settings-split .btn-primary:disabled {
+ color: oklch(70% 0.015 275);
+ background: oklch(91% 0.012 275);
+}
+.modal-settings-split .btn-danger {
+ min-height: 40px;
+ color: oklch(51% 0.18 25);
+ background: transparent;
+ border-color: oklch(86% 0.065 25);
+ border-radius: 10px;
+}
+.modal-settings-split .btn-danger:hover {
+ color: oklch(43% 0.19 25);
+ background: oklch(96% 0.025 25);
+ border-color: oklch(74% 0.13 25);
+}
+
+.modal-settings-split [class*="notify"],
+.modal-settings-split [class*="notice"],
+.modal-settings-split [class*="alert"] {
+ padding: 12px 14px;
+ border: 1px solid var(--settings-line);
+ border-radius: 11px;
+ line-height: 1.5;
+ background: var(--settings-surface);
+}
+.modal-settings-split [class*="section"],
+.modal-settings-split [class*="config"] {
+ border-color: var(--settings-line);
+}
+.modal-settings-split [class*="section-title"],
+.modal-settings-split [class*="group-title"] {
+ color: var(--settings-ink);
  font-weight: 720;
  letter-spacing: -0.01em;
 }
 
-.node-subtitle {
- margin-top: 3px;
- font-size: 11px;
- line-height: 1.35;
- color: var(--flow-muted);
+.modal-settings-split [class*="model-list"] {
+ border: 1px solid var(--settings-line);
+ border-radius: 14px;
+ overflow: hidden;
+ background: var(--settings-surface);
 }
-
-.node-body {
- padding: 16px;
- gap: 12px;
-}
-
-.field { gap: 6px; }
-.field-label {
- font-size: 10px;
- line-height: 1.2;
- color: var(--flow-muted);
- font-weight: 650;
- letter-spacing: 0.08em;
- text-transform: uppercase;
-}
-
-.node-card input,
-.node-card textarea,
-.node-card select {
- min-height: 38px;
- padding: 9px 11px;
- font-size: 12px;
- line-height: 1.5;
- color: var(--flow-ink);
- background: var(--flow-field);
- border: 1px solid var(--flow-line);
- border-radius: 10px;
-}
-
-.node-card textarea { min-height: 76px; }
-.node-card input:hover,
-.node-card textarea:hover,
-.node-card select:hover { border-color: oklch(82% 0.025 264); }
-
-.node-card input:focus,
-.node-card textarea:focus,
-.node-card select:focus {
- background: var(--flow-surface);
- border-color: var(--flow-accent);
- box-shadow: 0 0 0 3px oklch(56% 0.19 264 / 0.12);
-}
-
-.preset-row { gap: 8px; }
-.node-card .mini-btn {
- width: 38px;
- height: 38px;
- border-radius: 10px;
- background: var(--flow-surface);
- border-color: var(--flow-line);
-}
-
-.port { min-height: 26px; }
-.port-label {
- font-size: 10px;
- font-weight: 650;
- color: var(--flow-muted);
- letter-spacing: 0.04em;
-}
-
-.port .react-flow__handle {
- width: 13px;
- height: 13px;
- margin: 0 7px;
- background: var(--flow-surface);
- border: 3px solid var(--flow-accent);
- box-shadow: 0 0 0 3px var(--flow-surface), 0 2px 6px oklch(27% 0.025 264 / 0.16);
- transition: transform 120ms cubic-bezier(0.22, 1, 0.36, 1), background 120ms linear;
-}
-
-.port .react-flow__handle:hover,
-.port .react-flow__handle.connectingto,
-.port .react-flow__handle.connectingfrom {
- transform: scale(1.18);
- background: var(--flow-accent);
-}
-
-.react-flow__edge-path {
- stroke: oklch(72% 0.035 264);
- stroke-width: 2;
-}
-.react-flow__edge.animated .react-flow__edge-path,
-.react-flow__edge.selected .react-flow__edge-path {
- stroke: var(--flow-accent);
- stroke-width: 2.5;
-}
-
-.status-dot {
- width: 8px;
- height: 8px;
- box-shadow: 0 0 0 4px var(--flow-surface);
-}
-
-.node-error {
- margin: 0 16px 16px;
+.modal-settings-split [class*="model-row"],
+.modal-settings-split [class*="model-item"] {
+ min-height: 56px;
  padding: 10px 12px;
- font-size: 11px;
- line-height: 1.55;
- color: oklch(43% 0.15 25);
- background: oklch(96% 0.028 25);
- border: 1px solid oklch(86% 0.07 25);
- border-radius: 10px;
+ border-bottom: 1px solid var(--settings-line);
+ background: var(--settings-surface);
+ transition: background 120ms linear;
+}
+.modal-settings-split [class*="model-row"]:last-child,
+.modal-settings-split [class*="model-item"]:last-child { border-bottom: 0; }
+.modal-settings-split [class*="model-row"]:hover,
+.modal-settings-split [class*="model-item"]:hover { background: var(--settings-soft); }
+.modal-settings-split [class*="model-name"] {
+ font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+ font-size: 12px;
+ font-weight: 650;
+ color: var(--settings-ink);
+}
+.modal-settings-split [class*="filter"] button,
+.modal-settings-split [class*="chip"] {
+ min-height: 34px !important;
+ padding: 0 11px;
+ border: 1px solid var(--settings-line);
+ border-radius: 999px !important;
+ color: var(--settings-muted);
+ background: var(--settings-surface);
+}
+.modal-settings-split [class*="filter"] button:hover,
+.modal-settings-split [class*="filter"] button.active,
+.modal-settings-split [class*="chip"].active {
+ color: var(--settings-accent);
+ border-color: oklch(80% 0.07 275);
+ background: var(--settings-accent-soft);
 }
 
-.dropzone,
-.preview-box {
- background: var(--flow-field);
- border-color: oklch(84% 0.025 264);
- border-radius: 12px;
+.modal-settings-split .empty-hint {
+ width: min(440px, 100%);
+ margin: auto;
+ padding: 32px;
+ border: 1px dashed var(--settings-line-strong);
+ border-radius: 16px;
+ text-align: center;
+ line-height: 1.7;
+ color: var(--settings-muted);
+ background: var(--settings-surface);
 }
-.dropzone:hover {
- background: var(--flow-accent-soft);
- border-color: var(--flow-accent);
+.modal-settings-split .form-actions {
+ position: sticky;
+ bottom: -48px;
+ z-index: 2;
+ min-height: 68px;
+ margin: 16px calc(clamp(24px, 4vw, 52px) * -1) -48px;
+ padding: 12px clamp(24px, 4vw, 52px);
+ border-top: 1px solid var(--settings-line);
+ background: var(--settings-surface);
 }
 
-@media (max-width: 768px) {
- .node-card { width: 272px; border-radius: 16px; }
- .node-header { min-height: 60px; padding: 12px 14px; }
- .node-body { padding: 14px; gap: 12px; }
- .node-card input, .node-card textarea, .node-card select { min-height: 44px; }
- .port .react-flow__handle { width: 16px; height: 16px; }
+@media (max-width: 900px) {
+ .modal-settings-split {
+ width: 100vw;
+ height: 100dvh;
+ max-width: 100vw;
+ max-height: 100dvh;
+ border: 0;
+ border-radius: 0;
+ }
+ .modal-settings-split .modal-header { min-height: 68px; padding: 14px 16px 12px; }
+ .modal-settings-split .modal-header h2 { font-size: 18px; }
+ .modal-settings-split .settings-tabs { padding: 6px 16px 0; gap: 20px; overflow-x: auto; }
+ .modal-settings-split .modal-body { display: flex; flex-direction: column; }
+ .modal-settings-split .preset-list {
+ width: 100%;
+ max-height: 212px;
+ padding: 12px 14px;
+ border-right: 0;
+ border-bottom: 1px solid var(--settings-line);
+ }
+ .modal-settings-split .preset-form {
+ padding: 20px 16px 40px;
+ gap: 18px;
+ }
+ .modal-settings-split .f-row,
+ .modal-settings-split .field-row { flex-direction: column; gap: 12px; }
+ .modal-settings-split .form-actions {
+ bottom: -40px;
+ margin: 12px -16px -40px;
+ padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+ }
+}
+
+@media (max-width: 520px) {
+ .modal-settings-split .modal-header p { display: none; }
+ .modal-settings-split .settings-tabs { gap: 16px; }
+ .modal-settings-split .preset-list { max-height: 176px; }
+ .modal-settings-split .preset-item { min-height: 54px; }
+ .modal-settings-split [class*="model-row"],
+ .modal-settings-split [class*="model-item"] { align-items: flex-start; flex-wrap: wrap; }
 }
