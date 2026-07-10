@@ -4,9 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/apply-auto-ratio-fix.mjs",
+    "prepare:source": "node scripts/apply-auto-ratio-fix.mjs && node scripts/disable-system-prompt-injection.mjs",
+    "predev": "npm run prepare:source",
     "dev": "vite",
-    "prebuild": "node scripts/apply-auto-ratio-fix.mjs",
+    "prebuild": "npm run prepare:source",
     "build": "vite build",
     "preview": "vite preview"
   },
