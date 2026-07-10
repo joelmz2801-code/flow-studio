@@ -6,6 +6,7 @@ import FolderDialogGuard from './favorites/FolderDialogGuard.jsx'
 import '@xyflow/react/dist/style.css'
 import './styles.css'
 import './favorites/favorites.css'
+import './favorites/folder-dialog-guard.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
