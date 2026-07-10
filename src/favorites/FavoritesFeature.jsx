@@ -8,6 +8,7 @@ const NAV_ATTR = 'data-jfs-favorites-nav'
 const FAVORITE_ATTR = 'data-jfs-favorite-action'
 const SETTINGS_ATTR = 'data-jfs-unified-settings'
 const FOLDER_TAB_ATTR = 'data-jfs-folder-tab'
+const FOLDER_OVERLAY_ID = 'jfs-folder-overlay'
 
 const heartSvg = (filled = false) => `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.9"/></svg>`
 
@@ -40,7 +41,6 @@ function fileExtension(source, type) {
   return 'png'
 }
 
-// 用 CSS 隐藏原生「账户设置 / API 设置」入口，避免 React 重渲染反复显隐造成抖动。
 function ensureHideStyle() {
   if (document.getElementById('jfs-hide-native-settings')) return
   const style = document.createElement('style')
@@ -49,7 +49,6 @@ function ensureHideStyle() {
   document.head.appendChild(style)
 }
 
-// 在一条消息的操作栏里找到「参考图 / 重新生成」那个箭头图标按钮作为锚点。
 function findAnchorButton(message) {
   const buttons = [...message.querySelectorAll('button')].filter((b) => !b.matches(`[${FAVORITE_ATTR}]`))
   const byTitle = buttons.find((b) => /重新生成|参考图/.test(b.title || b.getAttribute('aria-label') || ''))
@@ -83,15 +82,17 @@ export default function FavoritesFeature() {
   const chooseFolder = useCallback(async () => {
     if (!window.showDirectoryPicker) {
       notify('请使用最新版 Chrome 或 Edge 选择固定下载文件夹')
-      return
+      return null
     }
     try {
       const handle = await window.showDirectoryPicker({ id: 'flow-studio-downloads', mode: 'readwrite' })
       await saveDownloadFolder(handle)
       setFolder(handle)
       notify(`已保存文件夹：${handle.name}`)
+      return handle
     } catch (error) {
       if (error?.name !== 'AbortError') notify('选择文件夹失败')
+      return null
     }
   }, [notify])
 
@@ -129,6 +130,29 @@ export default function FavoritesFeature() {
     }
     await refresh()
   }, [notify, refresh])
+
+  // 保存文件夹面板：作为 body 级独立遮置，不修改 React 内容，彻底避开冲突。
+  const closeFolderOverlay = useCallback(() => {
+    document.getElementById(FOLDER_OVERLAY_ID)?.remove()
+    document.querySelector(`[${FOLDER_TAB_ATTR}]`)?.classList.remove('active')
+  }, [])
+
+  const openFolderOverlay = useCallback(() => {
+    closeFolderOverlay()
+    const current = folderRef.current
+    const overlay = document.createElement('div')
+    overlay.id = FOLDER_OVERLAY_ID
+    overlay.className = 'jfs-folder-overlay'
+    overlay.innerHTML = `<div class="jfs-folder-card" role="dialog" aria-label="保存文件夹"><div class="jfs-folder-copy"><span>DOWNLOAD LOCATION</span><h2>保存文件夹</h2><p>选择一个文件夹后，照片下载会自动保存到这里。浏览器会在必要时再次请求授权。</p></div><div class="jfs-folder-current"><div><strong>${current ? current.name : '浏览器默认下载位置'}</strong><span>${current ? '已保存到此设备' : '尚未选择固定文件夹'}</span></div><div class="jfs-folder-actions"><button type="button" data-choose>${current ? '更换文件夹' : '选择文件夹'}</button>${current ? '<button type="button" data-reset>恢复默认</button>' : ''}</div></div></div>`
+    overlay.querySelector('[data-choose]').onclick = async () => { const h = await chooseFolder(); if (h !== undefined) { closeFolderOverlay(); openFolderOverlay() } }
+    overlay.querySelector('[data-reset]')?.addEventListener('click', async () => { await forgetFolder(); closeFolderOverlay(); openFolderOverlay() })
+    document.body.appendChild(overlay)
+  }, [chooseFolder, closeFolderOverlay, forgetFolder])
+
+  const openFolderRef = useRef(openFolderOverlay)
+  const closeFolderRef = useRef(closeFolderOverlay)
+  openFolderRef.current = openFolderOverlay
+  closeFolderRef.current = closeFolderOverlay
 
   useEffect(() => {
     const target = document.getElementById('root') || document.body
@@ -169,33 +193,18 @@ export default function FavoritesFeature() {
       const accountTab = [...tabs.querySelectorAll('button')].find((button) => button.textContent.trim() === '账户')
       const apiTab = [...tabs.querySelectorAll('button')].find((button) => button.textContent.trim() === 'API 设置')
       if (!accountTab || !apiTab) return
-      const root = tabs.closest('[class*="modal"], [class*="settings"]') || tabs.parentElement?.parentElement
-      if (!root) return
-      root.classList.add('jfs-settings-root')
       const folderTab = document.createElement('button')
       folderTab.type = 'button'
       folderTab.className = promptTab.className
       folderTab.setAttribute(FOLDER_TAB_ATTR, 'true')
       folderTab.textContent = '保存文件夹'
       promptTab.insertAdjacentElement('afterend', folderTab)
-      const closePanel = () => {
-        root.classList.remove('jfs-folder-open')
-        root.querySelector('.jfs-folder-panel')?.remove()
-        folderTab.classList.remove('active')
-      }
-      ;[accountTab, apiTab, promptTab].forEach((tab) => tab.addEventListener('click', closePanel))
+      // 点其他三个原生 tab → 关揉文件夹遮置，交回 React 控制
+      ;[accountTab, apiTab, promptTab].forEach((tab) => tab.addEventListener('click', () => closeFolderRef.current()))
       folderTab.onclick = () => {
-        root.classList.add('jfs-folder-open')
         ;[accountTab, apiTab, promptTab].forEach((tab) => tab.classList.remove('active'))
         folderTab.classList.add('active')
-        root.querySelector('.jfs-folder-panel')?.remove()
-        const current = folderRef.current
-        const panel = document.createElement('section')
-        panel.className = 'jfs-folder-panel'
-        panel.innerHTML = `<div class="jfs-folder-copy"><span>DOWNLOAD LOCATION</span><h2>保存文件夹</h2><p>选择一个文件夹后，照片下载会自动保存到这里。浏览器会在必要时再次请求授权。</p></div><div class="jfs-folder-current"><div><strong>${current ? current.name : '浏览器默认下载位置'}</strong><span>${current ? '已保存到此设备' : '尚未选择固定文件夹'}</span></div><div class="jfs-folder-actions"><button type="button" data-choose>${current ? '更换文件夹' : '选择文件夹'}</button>${current ? '<button type="button" data-reset>恢复默认</button>' : ''}</div></div>`
-        panel.querySelector('[data-choose]').onclick = chooseFolder
-        panel.querySelector('[data-reset]')?.addEventListener('click', forgetFolder)
-        tabs.insertAdjacentElement('afterend', panel)
+        openFolderRef.current()
       }
     }
 
@@ -228,7 +237,6 @@ export default function FavoritesFeature() {
       })
     }
 
-    // 写 DOM 前先断开观察，写完丢弃自己触发的记录再重连，彻底避免自激发死循环。
     let scheduled = null
     const runWrites = () => {
       scheduled = null
@@ -239,6 +247,8 @@ export default function FavoritesFeature() {
         unifySidebarSettings()
         addFolderTab()
         addPhotoButtons()
+        // 设置弹窗关闭时（tab 不在了）自动收起文件夹遮置
+        if (!document.querySelector(`[${FOLDER_TAB_ATTR}]`)) closeFolderRef.current()
       } finally {
         if (observer) {
           observer.takeRecords()
@@ -254,7 +264,7 @@ export default function FavoritesFeature() {
     observer.observe(target, { childList: true, subtree: true })
     runWrites()
     return () => { observer.disconnect(); if (scheduled) clearTimeout(scheduled) }
-  }, [chooseFolder, forgetFolder, notify, toggleFavorite])
+  }, [notify, toggleFavorite])
 
   useEffect(() => {
     const count = document.querySelector('.jfs-favorites-count')
@@ -270,7 +280,6 @@ export default function FavoritesFeature() {
     })
   }, [favorites])
 
-  // 自动退出：点左侧任意对话/页面项或按 Esc 就关闭收藏夹。
   useEffect(() => {
     if (!favoritesOpen) return
     const onClick = (event) => {
