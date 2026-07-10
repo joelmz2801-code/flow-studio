@@ -8,17 +8,27 @@ const NAV_ATTR = 'data-jfs-favorites-nav'
 const FAVORITE_ATTR = 'data-jfs-favorite-action'
 const SETTINGS_ATTR = 'data-jfs-unified-settings'
 const FOLDER_TAB_ATTR = 'data-jfs-folder-tab'
+const HIDDEN_CLASS = 'jfs-hidden-native'
 
 const heartSvg = (filled = false) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8"/></svg>`
 
 function imageSource(image) { return image.currentSrc || image.src || '' }
 
+function findByText(selector, text, { outsideSidebar = false } = {}) {
+  return [...document.querySelectorAll(selector)].find((node) => {
+    if (node.textContent.trim() !== text) return false
+    if (outsideSidebar && node.closest('.sidebar')) return false
+    return true
+  }) || null
+}
+
 function isPhoto(image) {
   if (!imageSource(image)) return false
-  if (image.closest('.sidebar, .brand, .auth-page, [class*="avatar"], [class*="logo"], [class*="reference"]')) return false
-  const width = image.naturalWidth || image.getBoundingClientRect().width
-  const height = image.naturalHeight || image.getBoundingClientRect().height
-  return width >= 220 && height >= 220 && Boolean(image.closest('.msg, .message, [class*="assistant"], [class*="media"]'))
+  if (image.closest('.jfs-favorites-page, .sidebar, .brand, .auth-page, [class*="avatar"], [class*="logo"], [class*="reference"]')) return false
+  const width = image.naturalWidth || image.clientWidth
+  const height = image.naturalHeight || image.clientHeight
+  if (width < 220 || height < 220) return false
+  return Boolean(image.closest('.msg, .message, [class*="assistant"], [class*="media"]'))
 }
 
 function safeFileName(value) {
@@ -46,7 +56,9 @@ export default function FavoritesFeature() {
   const [folder, setFolder] = useState(null)
   const [notice, setNotice] = useState('')
   const favoritesRef = useRef(favorites)
+  const folderRef = useRef(folder)
   favoritesRef.current = favorites
+  folderRef.current = folder
 
   const refresh = useCallback(async () => setFavorites(await listFavorites()), [])
   const notify = useCallback((message) => {
@@ -82,20 +94,21 @@ export default function FavoritesFeature() {
   }, [notify])
 
   const writePhoto = useCallback(async (source) => {
-    if (!folder) return false
-    let permission = await folder.queryPermission({ mode: 'readwrite' })
-    if (permission !== 'granted') permission = await folder.requestPermission({ mode: 'readwrite' })
+    const handle = folderRef.current
+    if (!handle) return false
+    let permission = await handle.queryPermission({ mode: 'readwrite' })
+    if (permission !== 'granted') permission = await handle.requestPermission({ mode: 'readwrite' })
     if (permission !== 'granted') throw new Error('未授权下载文件夹')
     const blob = await sourceBlob(source)
     const ext = fileExtension(source, blob.type || '')
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const fileHandle = await folder.getFileHandle(`${safeFileName('flow-studio')}-${stamp}.${ext}`, { create: true })
+    const fileHandle = await handle.getFileHandle(`${safeFileName('flow-studio')}-${stamp}.${ext}`, { create: true })
     const writable = await fileHandle.createWritable()
     await writable.write(blob)
     await writable.close()
-    notify(`已保存到 ${folder.name}`)
+    notify(`已保存到 ${handle.name}`)
     return true
-  }, [folder, notify])
+  }, [notify])
 
   const toggleFavorite = useCallback(async (source, prompt = '') => {
     const existing = await findBySource(source)
@@ -109,8 +122,9 @@ export default function FavoritesFeature() {
     await refresh()
   }, [notify, refresh])
 
+  // ── DOM 增强：去抖运行，避免 MutationObserver 反馈环导致卡顿 ──
   useEffect(() => {
-    const addFavoritesEntry = () => {
+    const ensureFavoritesEntry = () => {
       if (document.querySelector(`[${NAV_ATTR}]`)) return
       const search = document.querySelector('.sidebar .search-box')
       if (!search) return
@@ -122,61 +136,92 @@ export default function FavoritesFeature() {
       search.insertAdjacentElement('afterend', wrapper)
     }
 
-    const unifySidebarSettings = () => {
+    // 每次都重新隐藏原生入口（React 重渲染会把它们带回来）
+    const hideNativeSettings = () => {
       const foot = document.querySelector('.sidebar .sb-foot')
-      if (!foot || foot.querySelector(`[${SETTINGS_ATTR}]`)) return
-      const buttons = [...foot.querySelectorAll('button')]
-      const account = buttons.find((button) => button.textContent.trim() === '账户设置')
-      const api = buttons.find((button) => button.textContent.trim() === 'API 设置')
-      if (!account || !api) return
-      account.hidden = true
-      api.hidden = true
-      const settings = document.createElement('button')
-      settings.type = 'button'
-      settings.className = 'sb-item sb-settings jfs-unified-settings'
-      settings.setAttribute(SETTINGS_ATTR, 'true')
-      settings.innerHTML = '<span class="sb-item-icon"><svg viewBox="0 0 24 24" width="15" height="15"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span><span class="sb-item-label">设置</span>'
-      settings.onclick = () => account.click()
-      foot.insertBefore(settings, account)
+      if (foot) {
+        foot.querySelectorAll('button').forEach((button) => {
+          const text = button.textContent.trim()
+          if ((text === '账户设置' || text === 'API 设置') && !button.classList.contains(HIDDEN_CLASS)) {
+            button.classList.add(HIDDEN_CLASS)
+          }
+        })
+      }
+      const collapsed = document.querySelector('.sidebar.collapsed')
+      if (collapsed) {
+        collapsed.querySelectorAll('button').forEach((button) => {
+          const title = button.getAttribute('title')
+          if ((title === '账户设置' || title === 'API 设置') && !button.classList.contains(HIDDEN_CLASS)) {
+            button.classList.add(HIDDEN_CLASS)
+          }
+        })
+      }
     }
 
-    const addFolderTab = () => {
-      const accountTab = [...document.querySelectorAll('button')].find((button) => button.textContent.trim() === '账户')
-      const apiTab = [...document.querySelectorAll('button')].find((button) => button.textContent.trim() === 'API 设置' && !button.closest('.sidebar'))
-      const promptTab = [...document.querySelectorAll('button')].find((button) => button.textContent.trim() === '提示词')
-      if (!accountTab || !apiTab || !promptTab || document.querySelector(`[${FOLDER_TAB_ATTR}]`)) return
+    const ensureUnifiedSettings = () => {
+      hideNativeSettings()
+      const foot = document.querySelector('.sidebar .sb-foot')
+      if (foot && !foot.querySelector(`[${SETTINGS_ATTR}]`)) {
+        const settings = document.createElement('button')
+        settings.type = 'button'
+        settings.className = 'sb-item sb-settings jfs-unified-settings'
+        settings.setAttribute(SETTINGS_ATTR, 'true')
+        settings.innerHTML = '<span class="sb-item-icon"><svg viewBox="0 0 24 24" width="15" height="15"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span><span class="sb-item-label">设置</span>'
+        // 不缓存节点：点击时实时查找当前“账户设置”按钮并触发，避免 React 重渲染后引用失效
+        settings.onclick = () => {
+          const foot2 = document.querySelector('.sidebar .sb-foot')
+          const account = foot2 && [...foot2.querySelectorAll('button')].find((b) => b.textContent.trim() === '账户设置')
+          setFavoritesOpen(false)
+          if (account) account.click()
+        }
+        const firstNative = [...foot.querySelectorAll('button')].find((b) => b.textContent.trim() === '账户设置')
+        foot.insertBefore(settings, firstNative || foot.firstChild)
+      }
+    }
+
+    const ensureFolderTab = () => {
+      if (document.querySelector(`[${FOLDER_TAB_ATTR}]`)) return
+      const accountTab = findByText('button', '账户', { outsideSidebar: true })
+      const apiTab = findByText('button', 'API 设置', { outsideSidebar: true })
+      const promptTab = findByText('button', '提示词', { outsideSidebar: true })
+      if (!accountTab || !apiTab || !promptTab) return
       const tabs = accountTab.parentElement
       if (!tabs || !tabs.contains(apiTab) || !tabs.contains(promptTab)) return
       const root = tabs.closest('[class*="modal"], [class*="settings"]') || tabs.parentElement?.parentElement
       if (!root) return
       root.classList.add('jfs-settings-root')
+
       const folderTab = document.createElement('button')
       folderTab.type = 'button'
       folderTab.className = promptTab.className
       folderTab.setAttribute(FOLDER_TAB_ATTR, 'true')
       folderTab.textContent = '保存文件夹'
-      promptTab.insertAdjacentElement('afterend', folderTab)
+
       const closePanel = () => {
         root.classList.remove('jfs-folder-open')
         root.querySelector('.jfs-folder-panel')?.remove()
         folderTab.classList.remove('active')
       }
       ;[accountTab, apiTab, promptTab].forEach((tab) => tab.addEventListener('click', closePanel))
+
       folderTab.onclick = () => {
         root.classList.add('jfs-folder-open')
+        root.querySelectorAll('.jfs-settings-tab-active-shim')
         ;[accountTab, apiTab, promptTab].forEach((tab) => tab.classList.remove('active'))
         folderTab.classList.add('active')
         root.querySelector('.jfs-folder-panel')?.remove()
+        const handle = folderRef.current
         const panel = document.createElement('section')
         panel.className = 'jfs-folder-panel'
-        panel.innerHTML = `<div class="jfs-folder-copy"><span>DOWNLOAD LOCATION</span><h2>保存文件夹</h2><p>选择一个文件夹后，照片下载会自动保存到这里。浏览器会在必要时再次请求授权。</p></div><div class="jfs-folder-current"><div><strong>${folder ? folder.name : '浏览器默认下载位置'}</strong><span>${folder ? '已保存到此设备' : '尚未选择固定文件夹'}</span></div><div class="jfs-folder-actions"><button type="button" data-choose>${folder ? '更换文件夹' : '选择文件夹'}</button>${folder ? '<button type="button" data-reset>恢复默认</button>' : ''}</div></div>`
-        panel.querySelector('[data-choose]').onclick = chooseFolder
-        panel.querySelector('[data-reset]')?.addEventListener('click', forgetFolder)
+        panel.innerHTML = `<div class="jfs-folder-copy"><span>DOWNLOAD LOCATION</span><h2>保存文件夹</h2><p>选择一个文件夹后，照片下载会自动保存到这里。浏览器会在必要时再次请求授权。</p></div><div class="jfs-folder-current"><div><strong>${handle ? handle.name : '浏览器默认下载位置'}</strong><span>${handle ? '已保存到此设备' : '尚未选择固定文件夹'}</span></div><div class="jfs-folder-actions"><button type="button" data-choose>${handle ? '更换文件夹' : '选择文件夹'}</button>${handle ? '<button type="button" data-reset>恢复默认</button>' : ''}</div></div>`
+        panel.querySelector('[data-choose]').onclick = () => chooseFolder()
+        panel.querySelector('[data-reset]')?.addEventListener('click', () => forgetFolder())
         tabs.insertAdjacentElement('afterend', panel)
       }
+      promptTab.insertAdjacentElement('afterend', folderTab)
     }
 
-    const addPhotoButtons = () => {
+    const ensurePhotoButtons = () => {
       document.querySelectorAll('img').forEach((image) => {
         if (!isPhoto(image)) return
         const source = imageSource(image)
@@ -187,12 +232,9 @@ export default function FavoritesFeature() {
         button.type = 'button'
         button.className = 'jfs-photo-favorite'
         button.setAttribute(FAVORITE_ATTR, 'true')
-        const render = () => {
-          const saved = favoritesRef.current.some((item) => item.source === source)
-          button.classList.toggle('is-saved', saved)
-          button.innerHTML = `${heartSvg(saved)}<span>${saved ? '已收藏' : '收藏'}</span>`
-        }
-        render()
+        const saved = favoritesRef.current.some((item) => item.source === source)
+        button.classList.toggle('is-saved', saved)
+        button.innerHTML = `${heartSvg(saved)}<span>${saved ? '已收藏' : '收藏'}</span>`
         button.onclick = (event) => {
           event.preventDefault()
           event.stopPropagation()
@@ -203,24 +245,27 @@ export default function FavoritesFeature() {
       })
     }
 
-    let frameId = 0
-    const enhance = () => {
-      cancelAnimationFrame(frameId)
-      frameId = requestAnimationFrame(() => {
-        addFavoritesEntry()
-        unifySidebarSettings()
-        addFolderTab()
-        addPhotoButtons()
-      })
+    let timer = 0
+    const runEnhance = () => {
+      ensureFavoritesEntry()
+      ensureUnifiedSettings()
+      ensureFolderTab()
+      ensurePhotoButtons()
     }
-    const observer = new MutationObserver(enhance)
+    const schedule = () => {
+      clearTimeout(timer)
+      timer = setTimeout(runEnhance, 160)
+    }
+    const observer = new MutationObserver(schedule)
     observer.observe(document.getElementById('root') || document.body, { childList: true, subtree: true })
-    enhance()
-    return () => { observer.disconnect(); cancelAnimationFrame(frameId) }
-  }, [chooseFolder, folder, forgetFolder, notify, toggleFavorite])
+    runEnhance()
+    return () => { observer.disconnect(); clearTimeout(timer) }
+  }, [chooseFolder, forgetFolder, notify, toggleFavorite])
 
+  // 收藏状态变化时，同步计数与每个收藏按钮的外观
   useEffect(() => {
-    document.querySelector('.jfs-favorites-count')?.replaceChildren(document.createTextNode(favorites.length ? String(favorites.length) : ''))
+    const counter = document.querySelector('.jfs-favorites-count')
+    if (counter) counter.textContent = favorites.length ? String(favorites.length) : ''
     document.querySelectorAll(`[${FAVORITE_ATTR}]`).forEach((button) => {
       const image = button.parentElement?.querySelector('img')
       const saved = image && favorites.some((item) => item.source === imageSource(image))
@@ -229,9 +274,10 @@ export default function FavoritesFeature() {
     })
   }, [favorites])
 
+  // 下载拦截：设了文件夹时，把照片写入固定目录
   useEffect(() => {
     const interceptDownload = async (event) => {
-      if (!folder) return
+      if (!folderRef.current) return
       const target = event.target.closest?.('button, a')
       if (!target) return
       const label = `${target.textContent || ''} ${target.title || ''} ${target.getAttribute('aria-label') || ''}`
@@ -245,21 +291,40 @@ export default function FavoritesFeature() {
     }
     window.addEventListener('click', interceptDownload, true)
     return () => window.removeEventListener('click', interceptDownload, true)
-  }, [folder, notify, writePhoto])
+  }, [notify, writePhoto])
+
+  // 收藏夹打开时：点击侧边栏任意对话/页面 或 Esc 自动退出（取代左上角 X）
+  useEffect(() => {
+    if (!favoritesOpen) return
+    const onClick = (event) => {
+      const item = event.target.closest?.('.sidebar .sb-item, .sidebar .new-chat-btn, .sidebar .icon-btn')
+      if (item && !item.closest('.jfs-favorites-entry') && !item.hasAttribute(NAV_ATTR)) setFavoritesOpen(false)
+    }
+    const onKey = (event) => { if (event.key === 'Escape') setFavoritesOpen(false) }
+    document.addEventListener('click', onClick, true)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('click', onClick, true); document.removeEventListener('keydown', onKey) }
+  }, [favoritesOpen])
 
   return (
     <>
-      {favoritesOpen && <FavoritesPage favorites={favorites} onClose={() => setFavoritesOpen(false)} onRemove={async (id) => { await removeFavorite(id); await refresh(); notify('已移除收藏') }} />}
+      {favoritesOpen && <FavoritesPage favorites={favorites} onRemove={async (id) => { await removeFavorite(id); await refresh(); notify('已移除收藏') }} />}
       {notice && <div className="jfs-favorites-toast" role="status">{notice}</div>}
     </>
   )
 }
 
-function FavoritesPage({ favorites, onClose, onRemove }) {
+function FavoritesPage({ favorites, onRemove }) {
   return (
     <section className="jfs-favorites-page" aria-label="收藏夹">
-      <header><div><span>MY LIBRARY</span><h1>收藏夹</h1><p>{favorites.length ? `${favorites.length} 张已收藏照片` : '喜欢的照片会保存在这台设备上'}</p></div><button onClick={onClose} aria-label="关闭收藏夹">✕</button></header>
-      {favorites.length === 0 ? <div className="jfs-favorites-empty"><div dangerouslySetInnerHTML={{ __html: heartSvg(false) }} /><h2>还没有收藏</h2><p>生成喜欢的照片后，点击图片右下角的收藏按钮。</p><button onClick={onClose}>返回创作</button></div> : <main>{favorites.map((item) => <article key={item.id}><img src={item.source} alt={item.prompt || '收藏照片'} /><div><time>{new Date(item.createdAt).toLocaleString()}</time>{item.prompt && <p>{item.prompt}</p>}<button onClick={() => onRemove(item.id)}>移除收藏</button></div></article>)}</main>}
+      <header><div><span>MY LIBRARY</span><h1>收藏夹</h1><p>{favorites.length ? `${favorites.length} 张已收藏照片 · 点左侧对话即可返回` : '喜欢的照片会保存在这台设备上'}</p></div></header>
+      {favorites.length === 0 ? (
+        <div className="jfs-favorites-empty"><div dangerouslySetInnerHTML={{ __html: heartSvg(false) }} /><h2>还没有收藏</h2><p>生成喜欢的照片后，点击图片右下角的收藏按钮。</p></div>
+      ) : (
+        <main>{favorites.map((item) => (
+          <article key={item.id}><img src={item.source} alt={item.prompt || '收藏照片'} /><div><time>{new Date(item.createdAt).toLocaleString()}</time>{item.prompt && <p>{item.prompt}</p>}<button onClick={() => onRemove(item.id)}>移除收藏</button></div></article>
+        ))}</main>
+      )}
     </section>
   )
 }
