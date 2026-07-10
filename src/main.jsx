@@ -7,6 +7,7 @@ import '@xyflow/react/dist/style.css'
 import './styles.css'
 import './favorites/favorites.css'
 import './favorites/folder-dialog-guard.css'
+import './favorites/mobile.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
