@@ -1,41 +1,22 @@
-/* 侧边栏实际展开宽度是 252px，收藏页精确贴边 */
 #root:has(.sidebar:not(.collapsed)) .jfs-favorites-page{left:252px}
 #root:has(.sidebar.collapsed) .jfs-favorites-page{left:64px}
 .app:has(>.sidebar.collapsed)>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 64px);max-width:none;margin-left:0}
 .app:has(>.sidebar:not(.collapsed))>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 252px);max-width:none;margin-left:0}
+.jfs-opening-favorites .sidebar,.jfs-opening-favorites .main-area{transition:none!important}
 
-/* 冷启动兜底展开只存在一个 DOM 提交周期，禁用宽度过渡避免可见闪动。 */
-.jfs-opening-favorites .sidebar{transition:none!important}
-.jfs-opening-favorites .main-area{transition:none!important}
+.jfs-sidebar-bookmark-icon{display:block;width:17px;height:17px;flex:0 0 17px;color:currentColor;fill:none;stroke:currentColor}
 
-/* 展开入口始终由 CSS 绘制唯一空心书签，首屏不依赖异步替换。 */
-.jfs-favorites-entry .sb-item-icon>*{display:none!important}
-.jfs-favorites-entry .sb-item-icon::before{
- content:"";
- display:block;
- width:16px;
- height:16px;
- background:currentColor;
- -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M6 3.75h12v16.5l-6-3.75-6 3.75z'/%3E%3C/svg%3E") center/contain no-repeat;
- mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M6 3.75h12v16.5l-6-3.75-6 3.75z'/%3E%3C/svg%3E") center/contain no-repeat;
-}
-.jfs-sidebar-bookmark-icon{display:block;width:16px;height:16px;flex:0 0 16px;color:oklch(53% .018 285);fill:none;stroke:currentColor}
-.jfs-favorites-entry:hover .jfs-sidebar-bookmark-icon,
-.jfs-collapsed-favorites:hover .jfs-sidebar-bookmark-icon{color:oklch(35% .025 285)}
-
-/* 展开态只显示标准收藏行。 */
+/* Expanded: exactly one standard row, directly below search. */
 .jfs-favorites-entry-wrap{padding:0;margin:0 0 14px}
 .jfs-favorites-entry{display:flex;align-items:center;padding:9px 10px}
 .jfs-favorites-entry .sb-item-icon{display:grid;place-items:center;width:20px;height:20px;flex:0 0 20px;color:oklch(53% .018 285)}
-.jfs-favorites-entry:hover .sb-item-icon{color:oklch(35% .025 285)}
 .jfs-favorites-entry .sb-item-label{display:inline}
 .sidebar:not(.collapsed) .jfs-collapsed-favorites{display:none!important}
 
-/* 折叠态只显示唯一图标，展开入口和文字都不占布局。 */
+/* Collapsed: exactly one icon in the same navigation slot, never text. */
 .sidebar.collapsed [data-jfs-favorites-nav]{display:none!important}
-.sidebar.collapsed .jfs-collapsed-favorites{display:grid!important;place-items:center;overflow:visible!important;font-size:0!important}
+.sidebar.collapsed .jfs-collapsed-favorites{display:grid!important;place-items:center;width:42px;height:42px;flex:0 0 42px;overflow:visible!important;font-size:0!important}
 .sidebar.collapsed .jfs-collapsed-favorites .jfs-sidebar-bookmark-icon{display:block!important;width:18px;height:18px}
-.sidebar.collapsed .jfs-collapsed-favorites .sb-item-label,
 .sidebar.collapsed .jfs-collapsed-favorites span{display:none!important}
 
 @media(max-width:768px){
