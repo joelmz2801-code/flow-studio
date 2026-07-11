@@ -37,9 +37,12 @@
 .jfs-favorites-entry:hover .sb-item-icon{color:oklch(35% .025 285)}
 .jfs-favorites-entry .sb-item-label{display:inline}
 
+/* React 外部注入的展开入口可能在折叠后残留，彻底隐藏，避免“收藏夹”文字占位。 */
+.sidebar.collapsed [data-jfs-favorites-nav]{display:none!important}
+
 /* 收起态只有同一个书签图标，没有文字 */
 .jfs-collapsed-favorites{display:grid!important;place-items:center;overflow:visible!important;font-size:0!important}
-.jfs-collapsed-favorites .jfs-sidebar-bookmark-icon{width:18px;height:18px}
+.jfs-collapsed-favorites .jfs-sidebar-bookmark-icon{display:block!important;width:18px;height:18px}
 .jfs-collapsed-favorites .sb-item-label,
 .jfs-collapsed-favorites span{display:none!important}
 
