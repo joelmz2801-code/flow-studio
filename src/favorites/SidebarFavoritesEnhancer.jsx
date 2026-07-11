@@ -10,6 +10,16 @@ function bookmarkSvg() {
  return '<svg class="jfs-sidebar-bookmark-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.75h12v16.5l-6-3.75-6 3.75z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 }
 
+function hasSingleBookmark(node) {
+ return node?.children.length === 1 && node.firstElementChild?.classList.contains('jfs-sidebar-bookmark-icon')
+}
+
+function ensureBookmark(node) {
+ if (hasSingleBookmark(node)) return
+ node.replaceChildren()
+ node.insertAdjacentHTML('afterbegin', bookmarkSvg())
+}
+
 function removeCollapsedEntries() {
  document.querySelectorAll(COLLAPSED_SELECTOR).forEach((node) => node.remove())
 }
@@ -31,10 +41,9 @@ function normalizeExpandedEntry(sidebar) {
  sourceButton.click()
  return true
  }
- icon.replaceChildren()
- icon.insertAdjacentHTML('afterbegin', bookmarkSvg())
+ ensureBookmark(icon)
  const label = entry.querySelector('.sb-item-label')
- if (label) label.textContent = '收藏夹'
+ if (label && label.textContent !== '收藏夹') label.textContent = '收藏夹'
  return true
 }
 
@@ -70,8 +79,6 @@ function openFromCollapsed() {
 }
 
 function syncCollapsedEntry(sidebar) {
- // The expanded row is removed from layout before the collapsed icon is added.
- // Keep its click handler through openFavoritesAction, never render both variants.
  const expanded = [...document.querySelectorAll(NAV_SELECTOR)]
  const source = expanded.find((node) => node.querySelector('.jfs-favorites-entry'))
  if (source) {
@@ -92,11 +99,10 @@ function syncCollapsedEntry(sidebar) {
  button.setAttribute('aria-label', '收藏夹')
  button.addEventListener('click', openFromCollapsed)
  }
- button.replaceChildren()
- button.insertAdjacentHTML('afterbegin', bookmarkSvg())
+ ensureBookmark(button)
 
- // Collapsed and expanded states share one semantic slot: immediately after
- // search/new-chat controls and before page navigation. Never pin to the bottom.
+ // Both states use the same semantic slot: after search/new-chat controls and
+ // before page navigation. This is stable across refreshes and toggle cycles.
  const newChat = [...sidebar.querySelectorAll(':scope > button')].find((node) =>
  /新对话/.test(`${node.title || ''} ${node.getAttribute('aria-label') || ''}`),
  )
