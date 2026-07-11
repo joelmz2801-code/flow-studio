@@ -15,10 +15,12 @@ function replaceExpandedIcon() {
  const icon = entry.querySelector('.sb-item-icon')
  if (!icon) return false
 
- // The injected expanded entry stays mounted while hidden, so its React click
- // handler is the stable route for both expanded and collapsed sidebars.
+ // Return success instead of merely existing. React replaces the whole sidebar
+ // subtree between expanded and collapsed modes, so old entry closures can be stale.
  openFavoritesAction = () => {
- if (entry.isConnected) entry.click()
+ if (!entry.isConnected) return false
+ entry.click()
+ return true
  }
 
  if (!icon.querySelector('.jfs-sidebar-bookmark-icon') || icon.children.length !== 1) {
@@ -41,29 +43,30 @@ function finishFallbackOpen(observer) {
  replaceExpandedIcon()
  entry.click()
  document.querySelector('.sidebar:not(.collapsed) .sb-toggle')?.click()
+ document.documentElement.classList.remove('jfs-opening-favorites')
  openingFromCollapsed = false
  return true
 }
 
 function openFromCollapsed() {
- if (openFavoritesAction) {
- openFavoritesAction()
- return
- }
+ if (openFavoritesAction?.()) return
+ openFavoritesAction = null
  if (openingFromCollapsed) return
 
- // Cold-load fallback only. Complete the temporary expand/open/collapse in the
- // same DOM turn so the sidebar never visibly reflows.
+ // Cold-load fallback only. React flushes button clicks synchronously in the
+ // normal path; the observer covers slower commits without exposing the reflow.
  const toggle = document.querySelector('.sidebar.collapsed .sb-toggle')
  if (!toggle) return
  openingFromCollapsed = true
+ document.documentElement.classList.add('jfs-opening-favorites')
  const root = document.getElementById('root') || document.body
  const observer = new MutationObserver(() => finishFallbackOpen(observer))
  observer.observe(root, { childList: true, subtree: true })
  toggle.click()
- queueMicrotask(() => finishFallbackOpen(observer))
+ if (!finishFallbackOpen(observer)) queueMicrotask(() => finishFallbackOpen(observer))
  setTimeout(() => {
  observer.disconnect()
+ document.documentElement.classList.remove('jfs-opening-favorites')
  openingFromCollapsed = false
  }, 500)
 }
@@ -72,8 +75,6 @@ function syncCollapsedEntry() {
  const sidebar = document.querySelector('.sidebar')
  if (!sidebar) return
 
- // Expanded mode must never retain the collapsed-only button. This cleanup is
- // what prevents the duplicate standalone bookmark shown after toggling.
  if (!sidebar.classList.contains('collapsed')) {
  removeCollapsedEntries()
  return
@@ -98,8 +99,8 @@ function syncCollapsedEntry() {
  button.insertAdjacentHTML('afterbegin', bookmarkSvg())
  }
 
- // React commits sidebar children in phases on a cold refresh. Reinsert on
- // every observed commit so the final invariant is always: favorite, spacer.
+ // Final invariant after every React commit: exactly one favorite immediately
+ // before the flexible spacer, never a timing-dependent third-row insertion.
  const spacer = sidebar.querySelector('.sb-spacer')
  if (spacer) {
  if (button.parentElement !== sidebar || button.nextElementSibling !== spacer) {
@@ -136,6 +137,7 @@ export default function SidebarFavoritesEnhancer() {
  return () => {
  observer.disconnect()
  if (frame) cancelAnimationFrame(frame)
+ document.documentElement.classList.remove('jfs-opening-favorites')
  removeCollapsedEntries()
  }
  }, [])

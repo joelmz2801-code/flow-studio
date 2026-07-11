@@ -4,6 +4,10 @@
 .app:has(>.sidebar.collapsed)>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 64px);max-width:none;margin-left:0}
 .app:has(>.sidebar:not(.collapsed))>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 252px);max-width:none;margin-left:0}
 
+/* 冷启动兜底展开只存在一个 DOM 提交周期，禁用宽度过渡避免可见闪动。 */
+.jfs-opening-favorites .sidebar{transition:none!important}
+.jfs-opening-favorites .main-area{transition:none!important}
+
 /* 展开入口始终由 CSS 绘制唯一空心书签，首屏不依赖异步替换。 */
 .jfs-favorites-entry .sb-item-icon>*{display:none!important}
 .jfs-favorites-entry .sb-item-icon::before{
