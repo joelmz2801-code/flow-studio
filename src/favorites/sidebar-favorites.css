@@ -4,15 +4,28 @@
 .app:has(>.sidebar.collapsed)>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 64px);max-width:none;margin-left:0}
 .app:has(>.sidebar:not(.collapsed))>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 252px);max-width:none;margin-left:0}
 
+/* 收藏夹入口始终由 CSS 绘制唯一的空心书签。这样首屏不依赖异步增强器，
+   React 初始写入的旧爱心也不会闪现或覆盖书签。 */
+.jfs-favorites-entry .sb-item-icon>*{display:none!important}
+.jfs-favorites-entry .sb-item-icon::before{
+ content:"";
+ display:block;
+ width:16px;
+ height:16px;
+ background:currentColor;
+ -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M6 3.75h12v16.5l-6-3.75-6 3.75z'/%3E%3C/svg%3E") center/contain no-repeat;
+ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M6 3.75h12v16.5l-6-3.75-6 3.75z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
 /* 唯一侧栏收藏图标：原生空心书签，不依赖隐藏、checked 或异步动画 */
 .jfs-sidebar-bookmark-icon{
-  display:block;
-  width:16px;
-  height:16px;
-  flex:0 0 16px;
-  color:oklch(53% .018 285);
-  fill:none;
-  stroke:currentColor;
+ display:block;
+ width:16px;
+ height:16px;
+ flex:0 0 16px;
+ color:oklch(53% .018 285);
+ fill:none;
+ stroke:currentColor;
 }
 .jfs-favorites-entry:hover .jfs-sidebar-bookmark-icon,
 .jfs-collapsed-favorites:hover .jfs-sidebar-bookmark-icon{color:oklch(35% .025 285)}
@@ -20,7 +33,8 @@
 /* 展开态与工作栏项目共用尺寸和中线，显示文字 */
 .jfs-favorites-entry-wrap{padding:0;margin:0 0 14px}
 .jfs-favorites-entry{display:flex;align-items:center;padding:9px 10px}
-.jfs-favorites-entry .sb-item-icon{display:grid;place-items:center;width:20px;height:20px;flex:0 0 20px}
+.jfs-favorites-entry .sb-item-icon{display:grid;place-items:center;width:20px;height:20px;flex:0 0 20px;color:oklch(53% .018 285)}
+.jfs-favorites-entry:hover .sb-item-icon{color:oklch(35% .025 285)}
 .jfs-favorites-entry .sb-item-label{display:inline}
 
 /* 收起态只有同一个书签图标，没有文字 */
@@ -30,8 +44,8 @@
 .jfs-collapsed-favorites span{display:none!important}
 
 @media(max-width:768px){
-  #root:has(.sidebar.collapsed) .jfs-favorites-page,
-  #root:has(.sidebar:not(.collapsed)) .jfs-favorites-page{left:0}
-  .app:has(>.sidebar.collapsed)>.main-area,
-  .app:has(>.sidebar:not(.collapsed))>.main-area{width:100%;max-width:none}
+ #root:has(.sidebar.collapsed) .jfs-favorites-page,
+ #root:has(.sidebar:not(.collapsed)) .jfs-favorites-page{left:0}
+ .app:has(>.sidebar.collapsed)>.main-area,
+ .app:has(>.sidebar:not(.collapsed))>.main-area{width:100%;max-width:none}
 }
