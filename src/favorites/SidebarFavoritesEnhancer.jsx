@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 
 const COLLAPSED_ATTR = 'data-jfs-collapsed-favorites'
+const COLLAPSED_SELECTOR = `[${COLLAPSED_ATTR}]`
 let openFavoritesAction = null
 let openingFromCollapsed = false
 
@@ -14,11 +15,12 @@ function replaceExpandedIcon() {
  const icon = entry.querySelector('.sb-item-icon')
  if (!icon) return false
 
- // 缓存 React 已绑定的点击入口。侧栏折叠后节点即使被移除，
- // 仍可直接触发它的处理函数，不必先展开侧栏再收起。
- openFavoritesAction = () => entry.click()
+ // The injected expanded entry stays mounted while hidden, so its React click
+ // handler is the stable route for both expanded and collapsed sidebars.
+ openFavoritesAction = () => {
+ if (entry.isConnected) entry.click()
+ }
 
- // 删除原组件创建的爱心及任何旧增强节点，直接写入唯一书签 SVG。
  if (!icon.querySelector('.jfs-sidebar-bookmark-icon') || icon.children.length !== 1) {
  icon.replaceChildren()
  icon.insertAdjacentHTML('afterbegin', bookmarkSvg())
@@ -26,6 +28,10 @@ function replaceExpandedIcon() {
  const label = entry.querySelector('.sb-item-label')
  if (label) label.textContent = '收藏夹'
  return true
+}
+
+function removeCollapsedEntries() {
+ document.querySelectorAll(COLLAPSED_SELECTOR).forEach((node) => node.remove())
 }
 
 function finishFallbackOpen(observer) {
@@ -46,8 +52,8 @@ function openFromCollapsed() {
  }
  if (openingFromCollapsed) return
 
- // 仅用于页面一开始就是折叠态、尚未缓存入口的极端情况。
- // 用 DOM 提交监听在同一帧内完成展开、打开、收起，避免旧版定时器造成可见跳动。
+ // Cold-load fallback only. Complete the temporary expand/open/collapse in the
+ // same DOM turn so the sidebar never visibly reflows.
  const toggle = document.querySelector('.sidebar.collapsed .sb-toggle')
  if (!toggle) return
  openingFromCollapsed = true
@@ -62,10 +68,21 @@ function openFromCollapsed() {
  }, 500)
 }
 
-function addCollapsedEntry() {
- const sidebar = document.querySelector('.sidebar.collapsed')
+function syncCollapsedEntry() {
+ const sidebar = document.querySelector('.sidebar')
  if (!sidebar) return
- let button = sidebar.querySelector(`[${COLLAPSED_ATTR}]`)
+
+ // Expanded mode must never retain the collapsed-only button. This cleanup is
+ // what prevents the duplicate standalone bookmark shown after toggling.
+ if (!sidebar.classList.contains('collapsed')) {
+ removeCollapsedEntries()
+ return
+ }
+
+ const duplicates = [...document.querySelectorAll(COLLAPSED_SELECTOR)]
+ let button = duplicates.find((node) => node.parentElement === sidebar) || null
+ duplicates.forEach((node) => { if (node !== button) node.remove() })
+
  if (!button) {
  button = document.createElement('button')
  button.type = 'button'
@@ -76,47 +93,51 @@ function addCollapsedEntry() {
  button.addEventListener('click', openFromCollapsed)
  }
 
- // 首次刷新时 React 会分阶段提交侧栏子节点。旧逻辑只在创建按钮时决定位置，
- // 如果 spacer 当时还没出现，按钮就会卡在第三行，直到第二次折叠才被重建。
- // 每次增强都重新把按钮钉在 spacer 前，DOM 后续更新也不会改变最终顺序。
- const spacer = sidebar.querySelector('.sb-spacer')
- if (spacer) {
- if (button.nextElementSibling !== spacer) sidebar.insertBefore(button, spacer)
- } else if (!button.isConnected) {
- sidebar.appendChild(button)
- }
-
  if (!button.querySelector('.jfs-sidebar-bookmark-icon') || button.children.length !== 1) {
  button.replaceChildren()
  button.insertAdjacentHTML('afterbegin', bookmarkSvg())
+ }
+
+ // React commits sidebar children in phases on a cold refresh. Reinsert on
+ // every observed commit so the final invariant is always: favorite, spacer.
+ const spacer = sidebar.querySelector('.sb-spacer')
+ if (spacer) {
+ if (button.parentElement !== sidebar || button.nextElementSibling !== spacer) {
+ sidebar.insertBefore(button, spacer)
+ }
+ } else if (button.parentElement !== sidebar) {
+ sidebar.appendChild(button)
  }
 }
 
 export default function SidebarFavoritesEnhancer() {
  useEffect(() => {
  const root = document.getElementById('root') || document.body
- let scheduled = false
+ let frame = 0
  let writing = false
 
  const enhance = () => {
  if (writing) return
  writing = true
  replaceExpandedIcon()
- addCollapsedEntry()
+ syncCollapsedEntry()
  writing = false
  }
  const schedule = () => {
- if (scheduled || writing) return
- scheduled = true
- requestAnimationFrame(() => {
- scheduled = false
+ if (frame || writing) return
+ frame = requestAnimationFrame(() => {
+ frame = 0
  enhance()
  })
  }
  const observer = new MutationObserver(schedule)
  observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
  enhance()
- return () => observer.disconnect()
+ return () => {
+ observer.disconnect()
+ if (frame) cancelAnimationFrame(frame)
+ removeCollapsedEntries()
+ }
  }, [])
  return null
 }
