@@ -1,0 +1,18 @@
+/* 收藏页跟随侧边栏宽度，不再在收起后留下 260px 空洞 */
+#root:has(.sidebar.collapsed) .jfs-favorites-page{left:64px}
+.app:has(>.sidebar.collapsed)>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 64px);max-width:none;margin-left:0}
+.app:has(>.sidebar:not(.collapsed))>.main-area{flex:1 1 auto;min-width:0;max-width:none}
+
+/* 展开态保留“收藏夹”文字，图标改用与对话操作栏一致的金色书签 */
+.jfs-favorites-entry .jfs-sidebar-bookmark{--icon-size:15px;--icon-circle-size:28px;width:18px;height:18px}
+.jfs-favorites-entry .sb-item-label{display:inline}
+
+/* 收起态只显示图标 */
+.jfs-collapsed-favorites{display:grid!important;place-items:center;overflow:visible!important}
+.jfs-collapsed-favorites .jfs-sidebar-bookmark{--icon-size:18px;--icon-circle-size:32px;width:36px;height:36px}
+.jfs-collapsed-favorites .bookmark{fill:var(--icon-primary-color)}
+
+@media(max-width:768px){
+  #root:has(.sidebar.collapsed) .jfs-favorites-page{left:0}
+  .app:has(>.sidebar.collapsed)>.main-area{width:100%;max-width:none}
+}
