@@ -4,6 +4,10 @@
 .app:has(>.sidebar.collapsed)>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 64px);max-width:none;margin-left:0}
 .app:has(>.sidebar:not(.collapsed))>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 252px);max-width:none;margin-left:0}
 
+/* 原组件刷新时会先渲染爱心，再由增强器替换。直接永久隐藏原始 SVG，杜绝闪现。 */
+.jfs-favorites-entry .sb-item-icon>svg{display:none!important}
+.jfs-favorites-entry .sb-item-icon>.jfs-sidebar-bookmark{display:grid!important}
+
 /* 侧边栏书签永远是中性空心状态，不跟照片收藏状态联动 */
 .jfs-favorites-entry .jfs-sidebar-bookmark,
 .jfs-collapsed-favorites .jfs-sidebar-bookmark{
@@ -18,6 +22,7 @@
 .jfs-collapsed-favorites .jfs-sidebar-bookmark input{display:none}
 .jfs-favorites-entry .jfs-sidebar-bookmark .bookmark,
 .jfs-collapsed-favorites .jfs-sidebar-bookmark .bookmark{
+  display:block!important;
   fill:transparent!important;
   stroke:currentColor;
   stroke-width:1.8;
