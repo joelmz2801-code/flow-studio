@@ -74,8 +74,18 @@ function addCollapsedEntry() {
  button.title = '收藏夹'
  button.setAttribute('aria-label', '收藏夹')
  button.addEventListener('click', openFromCollapsed)
- sidebar.insertBefore(button, sidebar.querySelector('.sb-spacer') || null)
  }
+
+ // 首次刷新时 React 会分阶段提交侧栏子节点。旧逻辑只在创建按钮时决定位置，
+ // 如果 spacer 当时还没出现，按钮就会卡在第三行，直到第二次折叠才被重建。
+ // 每次增强都重新把按钮钉在 spacer 前，DOM 后续更新也不会改变最终顺序。
+ const spacer = sidebar.querySelector('.sb-spacer')
+ if (spacer) {
+ if (button.nextElementSibling !== spacer) sidebar.insertBefore(button, spacer)
+ } else if (!button.isConnected) {
+ sidebar.appendChild(button)
+ }
+
  if (!button.querySelector('.jfs-sidebar-bookmark-icon') || button.children.length !== 1) {
  button.replaceChildren()
  button.insertAdjacentHTML('afterbegin', bookmarkSvg())
