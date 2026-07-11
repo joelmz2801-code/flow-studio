@@ -12,16 +12,11 @@ function bookmarkMarkup(checked) {
 }
 
 function syncButton(button) {
+  if (!button?.isConnected) return
   const checked = button.classList.contains('is-saved')
   button.dataset.jfsBookmarkReady = 'true'
   button.classList.add('jfs-bookmark-favorite')
-
-  // FavoritesFeature 会在收藏状态变化时重写 innerHTML。
-  // 每次都确认书签结构仍存在，不存在就立即恢复。
-  if (!button.querySelector('.ui-bookmark')) {
-    button.innerHTML = bookmarkMarkup(checked)
-  }
-
+  if (!button.querySelector('.ui-bookmark')) button.innerHTML = bookmarkMarkup(checked)
   const input = button.querySelector('.ui-bookmark input')
   if (input) input.checked = checked
   button.title = checked ? '取消收藏' : '收藏'
@@ -31,15 +26,38 @@ function syncButton(button) {
 export default function BookmarkFavoriteEnhancer() {
   useEffect(() => {
     const root = document.getElementById('root') || document.body
-    let frame = 0
-    const enhance = () => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => {
-        document.querySelectorAll(FAVORITE_SELECTOR).forEach(syncButton)
+    let scheduled = false
+    let repairing = false
+
+    const repairAll = () => {
+      if (repairing) return
+      repairing = true
+      document.querySelectorAll(FAVORITE_SELECTOR).forEach(syncButton)
+      repairing = false
+    }
+
+    const scheduleRepair = () => {
+      if (scheduled || repairing) return
+      scheduled = true
+      requestAnimationFrame(() => {
+        scheduled = false
+        repairAll()
       })
     }
 
-    const observer = new MutationObserver(enhance)
+    // 同时监听 childList 和 class。原收藏组件改 innerHTML 后会触发 childList，
+    // 这里下一帧恢复书签。repairing 防止我们的修复再次触发自循环。
+    const observer = new MutationObserver((records) => {
+      if (repairing) return
+      const relevant = records.some((record) =>
+        record.type === 'attributes' ||
+        record.target.closest?.(FAVORITE_SELECTOR) ||
+        [...record.addedNodes].some((node) =>
+          node.nodeType === 1 && (node.matches?.(FAVORITE_SELECTOR) || node.querySelector?.(FAVORITE_SELECTOR))
+        )
+      )
+      if (relevant) scheduleRepair()
+    })
     observer.observe(root, {
       childList: true,
       subtree: true,
@@ -47,19 +65,18 @@ export default function BookmarkFavoriteEnhancer() {
       attributeFilter: ['class'],
     })
 
-    const afterFavoriteClick = (event) => {
+    // 点击后的 React/IndexedDB 更新可能分多轮完成，短时间内做三次幂等修复。
+    const afterClick = (event) => {
       const button = event.target.closest?.(FAVORITE_SELECTOR)
       if (!button) return
-      requestAnimationFrame(() => syncButton(button))
-      setTimeout(() => syncButton(button), 80)
+      ;[0, 60, 180].forEach((delay) => setTimeout(() => syncButton(button), delay))
     }
-    document.addEventListener('click', afterFavoriteClick, true)
-    enhance()
+    document.addEventListener('click', afterClick, true)
+    repairAll()
 
     return () => {
       observer.disconnect()
-      cancelAnimationFrame(frame)
-      document.removeEventListener('click', afterFavoriteClick, true)
+      document.removeEventListener('click', afterClick, true)
     }
   }, [])
   return null
