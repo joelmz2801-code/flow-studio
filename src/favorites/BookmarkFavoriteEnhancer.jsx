@@ -13,11 +13,15 @@ function bookmarkMarkup(checked) {
 
 function syncButton(button) {
   const checked = button.classList.contains('is-saved')
-  if (!button.dataset.jfsBookmarkReady) {
-    button.dataset.jfsBookmarkReady = 'true'
-    button.classList.add('jfs-bookmark-favorite')
+  button.dataset.jfsBookmarkReady = 'true'
+  button.classList.add('jfs-bookmark-favorite')
+
+  // FavoritesFeature 会在收藏状态变化时重写 innerHTML。
+  // 每次都确认书签结构仍存在，不存在就立即恢复。
+  if (!button.querySelector('.ui-bookmark')) {
     button.innerHTML = bookmarkMarkup(checked)
   }
+
   const input = button.querySelector('.ui-bookmark input')
   if (input) input.checked = checked
   button.title = checked ? '取消收藏' : '收藏'
