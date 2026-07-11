@@ -11,11 +11,20 @@ function bookmarkMarkup(checked) {
   </label>`
 }
 
+function visualState(button) {
+  const lockUntil = Number(button.dataset.jfsVisualLock || 0)
+  if (Date.now() < lockUntil) return button.dataset.jfsVisualSaved === 'true'
+  delete button.dataset.jfsVisualLock
+  delete button.dataset.jfsVisualSaved
+  return button.classList.contains('is-saved')
+}
+
 function syncButton(button) {
   if (!button?.isConnected) return
-  const checked = button.classList.contains('is-saved')
+  const checked = visualState(button)
   button.dataset.jfsBookmarkReady = 'true'
   button.classList.add('jfs-bookmark-favorite')
+  button.classList.toggle('jfs-visual-saved', checked)
   if (!button.querySelector('.ui-bookmark')) button.innerHTML = bookmarkMarkup(checked)
   const input = button.querySelector('.ui-bookmark input')
   if (input) input.checked = checked
@@ -45,8 +54,6 @@ export default function BookmarkFavoriteEnhancer() {
       })
     }
 
-    // 同时监听 childList 和 class。原收藏组件改 innerHTML 后会触发 childList，
-    // 这里下一帧恢复书签。repairing 防止我们的修复再次触发自循环。
     const observer = new MutationObserver((records) => {
       if (repairing) return
       const relevant = records.some((record) =>
@@ -65,18 +72,26 @@ export default function BookmarkFavoriteEnhancer() {
       attributeFilter: ['class'],
     })
 
-    // 点击后的 React/IndexedDB 更新可能分多轮完成，短时间内做三次幂等修复。
-    const afterClick = (event) => {
+    // 收藏写入 IndexedDB 是异步的。点击时立即锁定目标视觉状态，
+    // 防止旧的 is-saved class 在保存完成前把金色书签改回灰色。
+    const onClick = (event) => {
       const button = event.target.closest?.(FAVORITE_SELECTOR)
       if (!button) return
-      ;[0, 60, 180].forEach((delay) => setTimeout(() => syncButton(button), delay))
+      const current = button.querySelector('.ui-bookmark input')?.checked ?? button.classList.contains('is-saved')
+      const next = !current
+      button.dataset.jfsVisualSaved = String(next)
+      button.dataset.jfsVisualLock = String(Date.now() + 2500)
+      syncButton(button)
+      setTimeout(() => syncButton(button), 80)
+      setTimeout(() => syncButton(button), 500)
+      setTimeout(() => syncButton(button), 2600)
     }
-    document.addEventListener('click', afterClick, true)
+    document.addEventListener('click', onClick, true)
     repairAll()
 
     return () => {
       observer.disconnect()
-      document.removeEventListener('click', afterClick, true)
+      document.removeEventListener('click', onClick, true)
     }
   }, [])
   return null
