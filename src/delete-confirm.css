@@ -1,0 +1,20 @@
+.jfs-delete-dialog{width:min(420px,calc(100vw - 32px));padding:0;border:0;border-radius:18px;background:transparent;color:oklch(24% .018 285);box-shadow:0 24px 72px oklch(20% .025 285/.22)}
+.jfs-delete-dialog::backdrop{background:oklch(24% .022 285/.42)}
+.jfs-delete-panel{display:grid;grid-template-columns:48px 1fr;gap:0 16px;padding:24px;background:oklch(99% .006 285);border:1px solid oklch(90% .012 285);border-radius:18px}
+.jfs-delete-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:oklch(96% .025 25);color:oklch(54% .18 25)}
+.jfs-delete-icon svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.jfs-delete-copy h2{margin:1px 0 7px;font-size:1.25rem;line-height:1.2;letter-spacing:-.02em;text-wrap:balance}
+.jfs-delete-copy p{margin:0;color:oklch(52% .016 285);font-size:.875rem;line-height:1.55;text-wrap:pretty}
+.jfs-delete-media{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;margin-top:20px;padding:10px 12px;border:1px solid oklch(88% .014 285);border-radius:11px;background:oklch(97.5% .009 285);color:oklch(32% .022 285);font:inherit;font-size:.875rem;font-weight:700;cursor:pointer}
+.jfs-delete-media span{color:oklch(57% .014 285);font-size:.75rem;font-weight:500}
+.jfs-delete-media:hover{background:oklch(95.5% .014 285)}
+.jfs-delete-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:9px;margin-top:24px}
+.jfs-delete-actions button{min-height:42px;padding:9px 17px;border-radius:11px;font:inherit;font-size:.875rem;font-weight:750;cursor:pointer;transition:transform 120ms cubic-bezier(.25,1,.5,1),background 120ms cubic-bezier(.25,1,.5,1)}
+.jfs-delete-actions button:active{transform:scale(.97)}
+.jfs-delete-cancel{border:1px solid oklch(85% .014 285);background:oklch(99% .006 285);color:oklch(34% .02 285)}
+.jfs-delete-cancel:hover{background:oklch(96% .012 285)}
+.jfs-delete-confirm{border:1px solid oklch(51% .19 25);background:oklch(51% .19 25);color:oklch(98% .008 25)}
+.jfs-delete-confirm:hover{background:oklch(46% .18 25)}
+.jfs-delete-actions button:focus-visible,.jfs-delete-media:focus-visible{outline:3px solid oklch(68% .13 25/.35);outline-offset:2px}
+@media(max-width:520px){.jfs-delete-panel{grid-template-columns:40px 1fr;padding:20px;gap:0 12px}.jfs-delete-icon{width:40px;height:40px}.jfs-delete-actions{display:grid;grid-template-columns:1fr 1fr}.jfs-delete-actions button{width:100%}}
+@media(prefers-reduced-motion:reduce){.jfs-delete-actions button{transition:none}}
