@@ -1,58 +1,33 @@
-/* 侧边栏实际展开宽度是 252px，收藏页必须精确贴边 */
+/* 侧边栏实际展开宽度是 252px，收藏页精确贴边 */
 #root:has(.sidebar:not(.collapsed)) .jfs-favorites-page{left:252px}
 #root:has(.sidebar.collapsed) .jfs-favorites-page{left:64px}
 .app:has(>.sidebar.collapsed)>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 64px);max-width:none;margin-left:0}
 .app:has(>.sidebar:not(.collapsed))>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 252px);max-width:none;margin-left:0}
 
-/* 原组件刷新时会先渲染爱心，再由增强器替换。直接永久隐藏原始 SVG，杜绝闪现。 */
-.jfs-favorites-entry .sb-item-icon>svg{display:none!important}
-.jfs-favorites-entry .sb-item-icon>.jfs-sidebar-bookmark{display:grid!important}
-
-/* 侧边栏书签永远是中性空心状态，不跟照片收藏状态联动 */
-.jfs-favorites-entry .jfs-sidebar-bookmark,
-.jfs-collapsed-favorites .jfs-sidebar-bookmark{
-  --icon-primary-color:oklch(53% .018 285);
-  --icon-secondary-color:oklch(53% .018 285);
-  --icon-hover-color:oklch(35% .025 285);
-  display:grid;
-  place-items:center;
-  margin:0;
-}
-.jfs-favorites-entry .jfs-sidebar-bookmark input,
-.jfs-collapsed-favorites .jfs-sidebar-bookmark input{display:none}
-.jfs-favorites-entry .jfs-sidebar-bookmark .bookmark,
-.jfs-collapsed-favorites .jfs-sidebar-bookmark .bookmark{
-  display:block!important;
-  fill:transparent!important;
+/* 唯一侧栏收藏图标：原生空心书签，不依赖隐藏、checked 或异步动画 */
+.jfs-sidebar-bookmark-icon{
+  display:block;
+  width:16px;
+  height:16px;
+  flex:0 0 16px;
+  color:oklch(53% .018 285);
+  fill:none;
   stroke:currentColor;
-  stroke-width:1.8;
-  color:var(--icon-secondary-color);
-  animation:none!important;
-  transform:none!important;
 }
-.jfs-favorites-entry:hover .jfs-sidebar-bookmark .bookmark,
-.jfs-collapsed-favorites:hover .jfs-sidebar-bookmark .bookmark{
-  fill:transparent!important;
-  color:var(--icon-hover-color);
-}
-.jfs-favorites-entry .jfs-sidebar-bookmark .bookmark::before,
-.jfs-favorites-entry .jfs-sidebar-bookmark .bookmark::after,
-.jfs-collapsed-favorites .jfs-sidebar-bookmark .bookmark::before,
-.jfs-collapsed-favorites .jfs-sidebar-bookmark .bookmark::after{display:none!important}
+.jfs-favorites-entry:hover .jfs-sidebar-bookmark-icon,
+.jfs-collapsed-favorites:hover .jfs-sidebar-bookmark-icon{color:oklch(35% .025 285)}
 
-/* 展开态与工作栏项目共用尺寸和中线，保留文字 */
+/* 展开态与工作栏项目共用尺寸和中线，显示文字 */
 .jfs-favorites-entry-wrap{padding:0;margin:0 0 14px}
 .jfs-favorites-entry{display:flex;align-items:center;padding:9px 10px}
 .jfs-favorites-entry .sb-item-icon{display:grid;place-items:center;width:20px;height:20px;flex:0 0 20px}
-.jfs-favorites-entry .jfs-sidebar-bookmark{--icon-size:15px;width:20px;height:20px}
 .jfs-favorites-entry .sb-item-label{display:inline}
 
-/* 收起态仅显示图标 */
-.jfs-collapsed-favorites{display:grid!important;place-items:center;overflow:visible!important;font-size:0!important;color:transparent!important}
-.jfs-collapsed-favorites .jfs-sidebar-bookmark{--icon-size:18px;width:36px;height:36px;color:oklch(53% .018 285)}
-.jfs-collapsed-favorites .jfs-sidebar-bookmark .bookmark{width:18px;height:18px}
+/* 收起态只有同一个书签图标，没有文字 */
+.jfs-collapsed-favorites{display:grid!important;place-items:center;overflow:visible!important;font-size:0!important}
+.jfs-collapsed-favorites .jfs-sidebar-bookmark-icon{width:18px;height:18px}
 .jfs-collapsed-favorites .sb-item-label,
-.jfs-collapsed-favorites span:not(.ui-bookmark){display:none!important}
+.jfs-collapsed-favorites span{display:none!important}
 
 @media(max-width:768px){
   #root:has(.sidebar.collapsed) .jfs-favorites-page,
