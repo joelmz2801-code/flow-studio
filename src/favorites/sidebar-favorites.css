@@ -1,7 +1,8 @@
-/* 收藏页跟随侧边栏宽度，不再在收起后留下空洞 */
+/* 侧边栏实际展开宽度是 252px，收藏页必须精确贴边 */
+#root:has(.sidebar:not(.collapsed)) .jfs-favorites-page{left:252px}
 #root:has(.sidebar.collapsed) .jfs-favorites-page{left:64px}
 .app:has(>.sidebar.collapsed)>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 64px);max-width:none;margin-left:0}
-.app:has(>.sidebar:not(.collapsed))>.main-area{flex:1 1 auto;min-width:0;max-width:none}
+.app:has(>.sidebar:not(.collapsed))>.main-area{flex:1 1 auto;min-width:0;width:calc(100vw - 252px);max-width:none;margin-left:0}
 
 /* 侧边栏书签永远是中性空心状态，不跟照片收藏状态联动 */
 .jfs-favorites-entry .jfs-sidebar-bookmark,
@@ -34,13 +35,14 @@
 .jfs-collapsed-favorites .jfs-sidebar-bookmark .bookmark::before,
 .jfs-collapsed-favorites .jfs-sidebar-bookmark .bookmark::after{display:none!important}
 
-/* 展开态：图标与工作栏项目使用相同 15px 尺寸及中线，保留文字 */
-.jfs-favorites-entry{display:flex;align-items:center}
+/* 展开态与工作栏项目共用尺寸和中线，保留文字 */
+.jfs-favorites-entry-wrap{padding:0;margin:0 0 14px}
+.jfs-favorites-entry{display:flex;align-items:center;padding:9px 10px}
 .jfs-favorites-entry .sb-item-icon{display:grid;place-items:center;width:20px;height:20px;flex:0 0 20px}
 .jfs-favorites-entry .jfs-sidebar-bookmark{--icon-size:15px;width:20px;height:20px}
 .jfs-favorites-entry .sb-item-label{display:inline}
 
-/* 收起态：仅图标，不生成或展示任何文字 */
+/* 收起态仅显示图标 */
 .jfs-collapsed-favorites{display:grid!important;place-items:center;overflow:visible!important;font-size:0!important;color:transparent!important}
 .jfs-collapsed-favorites .jfs-sidebar-bookmark{--icon-size:18px;width:36px;height:36px;color:oklch(53% .018 285)}
 .jfs-collapsed-favorites .jfs-sidebar-bookmark .bookmark{width:18px;height:18px}
@@ -48,6 +50,8 @@
 .jfs-collapsed-favorites span:not(.ui-bookmark){display:none!important}
 
 @media(max-width:768px){
-  #root:has(.sidebar.collapsed) .jfs-favorites-page{left:0}
-  .app:has(>.sidebar.collapsed)>.main-area{width:100%;max-width:none}
+  #root:has(.sidebar.collapsed) .jfs-favorites-page,
+  #root:has(.sidebar:not(.collapsed)) .jfs-favorites-page{left:0}
+  .app:has(>.sidebar.collapsed)>.main-area,
+  .app:has(>.sidebar:not(.collapsed))>.main-area{width:100%;max-width:none}
 }
