@@ -1,40 +1,33 @@
 import React, { useEffect } from 'react'
-import { useStore, clearUserData } from './store.js'
-import {
-  syncFromCloudSafely,
-  applyRealtimeChatChangeSafely,
-  applyRealtimePresetChangeSafely,
-  applyRealtimeCustomPromptChangeSafely,
-  resetSafeSync,
-} from './safeSync.js'
+import { useStore, syncFromCloud, clearUserData, applyRealtimeChatChange, applyRealtimePresetChange, applyRealtimeCustomPromptChange } from './store.js'
 import { useAuth } from './useAuth.js'
 import { subscribeToChanges } from './lib/sync.js'
 import Sidebar from './Sidebar.jsx'
 import ChatPage from './ChatPage.jsx'
+import FlowPage from './FlowPage.jsx'
 import SettingsModal from './SettingsModal.jsx'
 import PromptLibrary from './PromptLibrary.jsx'
 import AuthPage from './AuthPage.jsx'
+import GrowthExperience from './GrowthExperience.jsx'
 
 export default function App() {
-  const activeView = useStore((state) => state.activeView)
-  const mobileNavOpen = useStore((state) => state.mobileNavOpen)
-  const setMobileNavOpen = useStore((state) => state.setMobileNavOpen)
+  const activeView = useStore((s) => s.activeView)
+  const mobileNavOpen = useStore((s) => s.mobileNavOpen)
+  const setMobileNavOpen = useStore((s) => s.setMobileNavOpen)
   const { user, loading, isAuthEnabled } = useAuth()
 
   useEffect(() => {
     if (!user) {
-      resetSafeSync()
       clearUserData()
       return
     }
-
-    syncFromCloudSafely(user.id)
-    return subscribeToChanges(
-      user.id,
-      applyRealtimeChatChangeSafely,
-      applyRealtimePresetChangeSafely,
-      applyRealtimeCustomPromptChangeSafely,
+    syncFromCloud(user.id)
+    const unsub = subscribeToChanges(user.id,
+      (payload) => { applyRealtimeChatChange(payload) },
+      (payload) => { applyRealtimePresetChange(payload) },
+      (payload) => { applyRealtimeCustomPromptChange(payload) },
     )
+    return unsub
   }, [user?.id])
 
   if (loading) {
@@ -51,9 +44,7 @@ export default function App() {
     <div className="app">
       <header className="mobile-topbar">
         <button className="icon-btn" onClick={() => setMobileNavOpen(true)} aria-label="打开菜单">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
         </button>
         <span className="mobile-title">Joel Flow Studio</span>
         <span style={{ width: 34 }} />
@@ -61,7 +52,8 @@ export default function App() {
       {mobileNavOpen && <div className="nav-backdrop" onClick={() => setMobileNavOpen(false)} />}
       <Sidebar />
       <div className="main-area">
-        <ChatPage chatId={activeView?.type === 'chat' ? activeView.id : null} />
+        {activeView.type === 'flow' ? <FlowPage /> : <ChatPage chatId={activeView.id} />}
+        <GrowthExperience activeView={activeView} />
       </div>
       <SettingsModal />
       <PromptLibrary />
