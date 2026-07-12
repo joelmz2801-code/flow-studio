@@ -4,7 +4,6 @@ import { useAuth } from './useAuth.js'
 import { subscribeToChanges } from './lib/sync.js'
 import Sidebar from './Sidebar.jsx'
 import ChatPage from './ChatPage.jsx'
-import FlowPage from './FlowPage.jsx'
 import SettingsModal from './SettingsModal.jsx'
 import PromptLibrary from './PromptLibrary.jsx'
 import AuthPage from './AuthPage.jsx'
@@ -40,6 +39,8 @@ export default function App() {
 
   if (isAuthEnabled && !user) return <AuthPage />
 
+  const chatView = activeView.type === 'chat' ? activeView : { type: 'chat', id: null }
+
   return (
     <div className="app">
       <header className="mobile-topbar">
@@ -52,8 +53,8 @@ export default function App() {
       {mobileNavOpen && <div className="nav-backdrop" onClick={() => setMobileNavOpen(false)} />}
       <Sidebar />
       <div className="main-area">
-        {activeView.type === 'flow' ? <FlowPage /> : <ChatPage chatId={activeView.id} />}
-        <GrowthExperience activeView={activeView} />
+        <ChatPage chatId={chatView.id} />
+        <GrowthExperience activeView={chatView} />
       </div>
       <SettingsModal />
       <PromptLibrary />
