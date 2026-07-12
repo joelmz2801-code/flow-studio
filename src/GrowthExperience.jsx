@@ -11,19 +11,10 @@ const TASKS = [
   { id: 'storyboard', label: '漫画分镜', kicker: '快速展开故事', art: 'storyboard', ratio: '16:9', style: '黑白漫画', prompt: '创作一页四格电影分镜：侦探在雨夜车站发现一只遗失的红色手提箱，镜头从全景推进到手部特写，黑白漫画线稿，仅手提箱保留红色，16:9 构图。' }
 ]
 
-function track(name, data = {}) {
-  try {
-    const key = 'jfs-growth-events'
-    const items = JSON.parse(localStorage.getItem(key) || '[]')
-    items.push({ name, ...data, device: innerWidth <= 768 ? 'mobile' : 'desktop', at: Date.now() })
-    localStorage.setItem(key, JSON.stringify(items.slice(-300)))
-  } catch {}
-}
-
 function typeIntoComposer(text, attempt = 0) {
   const textarea = document.querySelector('.main-area textarea')
   if (!textarea) {
-    if (attempt < 12) setTimeout(() => typeIntoComposer(text, attempt + 1), 40)
+    if (attempt < 15) setTimeout(() => typeIntoComposer(text, attempt + 1), 40)
     return
   }
   const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
@@ -38,34 +29,41 @@ function pickImageModel() {
   if (!trigger) return
   trigger.click()
   setTimeout(() => {
-    const options = [...document.querySelectorAll('button')]
-    const choice = options.find((button) => /agnes-image-2\.1-flash|agnes image 2\.1 flash/i.test(button.textContent || ''))
-      || options.find((button) => /图片模型/.test(button.textContent || '') && !/选择模型/.test(button.textContent || ''))
-    choice?.click()
+    const buttons = [...document.querySelectorAll('button')]
+    const option = buttons.find((button) => /agnes-image-2\.1-flash|agnes image 2\.1 flash/i.test(button.textContent || ''))
+      || buttons.find((button) => /图片模型/.test(button.textContent || '') && !/选择模型/.test(button.textContent || ''))
+    option?.click()
   }, 100)
 }
 
 export default function GrowthExperience({ activeView }) {
   const chats = useStore((state) => state.chats)
   const createChat = useStore((state) => state.createChat)
+  const [dismissedChatId, setDismissedChatId] = useState(null)
   const [notice, setNotice] = useState('')
   const chat = chats.find((item) => item.id === activeView?.id)
   const messages = chat?.messages || []
   const isChat = activeView?.type !== 'flow'
   const empty = isChat && messages.length === 0
+  const onboardingVisible = empty && dismissedChatId !== (activeView?.id || null)
 
   useEffect(() => {
-    document.documentElement.classList.toggle('jfs-growth-empty', empty)
+    document.documentElement.classList.toggle('jfs-growth-empty', onboardingVisible)
     return () => document.documentElement.classList.remove('jfs-growth-empty')
-  }, [empty])
+  }, [onboardingVisible])
 
   const applyTask = (task) => {
-    if (!activeView?.id) createChat()
+    const targetChatId = activeView?.id || createChat()
+    setDismissedChatId(targetChatId)
+    document.documentElement.classList.remove('jfs-growth-empty')
     localStorage.setItem('jfs-last-task', task.id)
     localStorage.setItem('jfs-model', 'agnes-image-2.1-flash')
-    setTimeout(() => typeIntoComposer(task.prompt), 0)
-    setTimeout(pickImageModel, 80)
-    track('task_template_applied', { task: task.id, ratio: task.ratio, style: task.style })
+
+    requestAnimationFrame(() => {
+      typeIntoComposer(task.prompt)
+      setTimeout(() => typeIntoComposer(task.prompt), 60)
+    })
+    setTimeout(pickImageModel, 100)
     setNotice(`已套用「${task.label}」，可以直接生成`)
   }
 
@@ -73,7 +71,7 @@ export default function GrowthExperience({ activeView }) {
 
   return (
     <>
-      {empty && (
+      {onboardingVisible && (
         <section className="growth-onboarding" aria-labelledby="growth-title">
           <div className="growth-copy">
             <span className="growth-eyebrow">2 分钟完成第一张作品</span>
@@ -89,7 +87,11 @@ export default function GrowthExperience({ activeView }) {
               </button>
             ))}
           </div>
-          <button className="growth-free" onClick={() => document.querySelector('.main-area textarea')?.focus()}>我有自己的想法，直接描述</button>
+          <button className="growth-free" onClick={() => {
+            setDismissedChatId(activeView?.id || null)
+            document.documentElement.classList.remove('jfs-growth-empty')
+            setTimeout(() => document.querySelector('.main-area textarea')?.focus(), 0)
+          }}>我有自己的想法，直接描述</button>
         </section>
       )}
       {notice && <button className="growth-notice" onClick={() => setNotice('')}>{notice}</button>}
