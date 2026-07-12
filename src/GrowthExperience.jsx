@@ -33,15 +33,6 @@ function pickImageModel() {
   }, 100)
 }
 
-function resizeTextarea(textarea) {
-  if (!textarea || !textarea.closest('.main-area')) return
-  textarea.style.height = 'auto'
-  const next = Math.min(160, Math.max(44, textarea.scrollHeight))
-  textarea.style.height = `${next}px`
-  textarea.style.maxHeight = '160px'
-  textarea.style.overflowY = textarea.scrollHeight > 160 ? 'auto' : 'hidden'
-}
-
 export default function GrowthExperience({ activeView }) {
   const chats = useStore((state) => state.chats)
   const usePrompt = useStore((state) => state.usePrompt)
@@ -56,28 +47,14 @@ export default function GrowthExperience({ activeView }) {
     return () => document.documentElement.classList.remove('jfs-growth-empty')
   }, [empty])
 
-  useEffect(() => {
-    const bind = (textarea) => {
-      if (!textarea || textarea.dataset.jfsAutosize === '1') return
-      textarea.dataset.jfsAutosize = '1'
-      const resize = () => requestAnimationFrame(() => resizeTextarea(textarea))
-      textarea.addEventListener('input', resize)
-      textarea.addEventListener('change', resize)
-      resize()
-    }
-    const scan = () => document.querySelectorAll('.main-area textarea').forEach(bind)
-    scan()
-    const observer = new MutationObserver(scan)
-    observer.observe(document.querySelector('.main-area') || document.body, { childList: true, subtree: true })
-    return () => observer.disconnect()
-  }, [])
-
   const applyTask = (task) => {
     localStorage.setItem('jfs-last-task', task.id)
     localStorage.setItem('jfs-model', 'agnes-image-2.1-flash')
     usePrompt(task.prompt)
     pickImageModel()
     track('task_template_applied', { task: task.id, ratio: task.ratio, style: task.style })
+    window.dispatchEvent(new CustomEvent('jfs:template-applied'))
+    setTimeout(() => window.dispatchEvent(new CustomEvent('jfs:template-applied')), 100)
     setNotice(`已套用「${task.label}」，可以直接生成`)
   }
 
