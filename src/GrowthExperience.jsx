@@ -18,7 +18,19 @@ function track(name, data = {}) {
     items.push({ name, ...data, device: innerWidth <= 768 ? 'mobile' : 'desktop', at: Date.now() })
     localStorage.setItem(key, JSON.stringify(items.slice(-300)))
   } catch {}
-  window.dispatchEvent(new CustomEvent('jfs:analytics', { detail: { name, ...data } }))
+}
+
+function typeIntoComposer(text, attempt = 0) {
+  const textarea = document.querySelector('.main-area textarea')
+  if (!textarea) {
+    if (attempt < 12) setTimeout(() => typeIntoComposer(text, attempt + 1), 40)
+    return
+  }
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
+  if (setter) setter.call(textarea, text)
+  else textarea.value = text
+  textarea.dispatchEvent(new Event('input', { bubbles: true }))
+  textarea.focus()
 }
 
 function pickImageModel() {
@@ -35,7 +47,7 @@ function pickImageModel() {
 
 export default function GrowthExperience({ activeView }) {
   const chats = useStore((state) => state.chats)
-  const usePrompt = useStore((state) => state.usePrompt)
+  const createChat = useStore((state) => state.createChat)
   const [notice, setNotice] = useState('')
   const chat = chats.find((item) => item.id === activeView?.id)
   const messages = chat?.messages || []
@@ -48,13 +60,12 @@ export default function GrowthExperience({ activeView }) {
   }, [empty])
 
   const applyTask = (task) => {
+    if (!activeView?.id) createChat()
     localStorage.setItem('jfs-last-task', task.id)
     localStorage.setItem('jfs-model', 'agnes-image-2.1-flash')
-    usePrompt(task.prompt)
-    pickImageModel()
+    setTimeout(() => typeIntoComposer(task.prompt), 0)
+    setTimeout(pickImageModel, 80)
     track('task_template_applied', { task: task.id, ratio: task.ratio, style: task.style })
-    window.dispatchEvent(new CustomEvent('jfs:template-applied'))
-    setTimeout(() => window.dispatchEvent(new CustomEvent('jfs:template-applied')), 100)
     setNotice(`已套用「${task.label}」，可以直接生成`)
   }
 

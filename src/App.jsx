@@ -8,7 +8,6 @@ import SettingsModal from './SettingsModal.jsx'
 import PromptLibrary from './PromptLibrary.jsx'
 import AuthPage from './AuthPage.jsx'
 import GrowthExperience from './GrowthExperience.jsx'
-import ComposerAutosize from './ComposerAutosize.jsx'
 
 export default function App() {
   const activeView = useStore((s) => s.activeView)
@@ -56,7 +55,6 @@ export default function App() {
       <div className="main-area">
         <ChatPage chatId={chatView.id} />
         <GrowthExperience activeView={chatView} />
-        <ComposerAutosize />
       </div>
       <SettingsModal />
       <PromptLibrary />
