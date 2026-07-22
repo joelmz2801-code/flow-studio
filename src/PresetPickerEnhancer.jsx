@@ -22,21 +22,12 @@ export default function PresetPickerEnhancer() {
     const enhance = () => {
       const popover = document.querySelector('.popover-models')
       if (!popover) return
-
       let bar = popover.querySelector('.preset-filterbar')
       if (!bar) {
         bar = document.createElement('div')
         bar.className = 'preset-filterbar'
-        const search = popover.querySelector('.model-search')
-        search?.before(bar)
+        popover.querySelector('.model-search')?.before(bar)
       }
-
-      const active = bar.dataset.active || ALL_KEY
-      bar.innerHTML = ''
-      const head = document.createElement('div')
-      head.className = 'preset-filter-head'
-      head.innerHTML = '<span>模型来源</span><small>按预设快速筛选</small>'
-      bar.appendChild(head)
 
       const options = [
         { key: ALL_KEY, label: '全部', count: document.querySelectorAll('.chat-model-item').length },
@@ -47,6 +38,15 @@ export default function PresetPickerEnhancer() {
           count: (preset.models || []).filter((model) => model.visible).length,
         })),
       ]
+      const signature = options.map((option) => `${option.key}:${option.label}:${option.count}`).join('|')
+      if (bar.dataset.signature === signature) return
+      const active = options.some((option) => option.key === bar.dataset.active) ? bar.dataset.active : ALL_KEY
+      bar.dataset.signature = signature
+      bar.innerHTML = ''
+      const head = document.createElement('div')
+      head.className = 'preset-filter-head'
+      head.innerHTML = '<span>模型来源</span><small>按预设快速筛选</small>'
+      bar.appendChild(head)
 
       const applyFilter = (key) => {
         bar.dataset.active = key
