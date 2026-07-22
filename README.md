@@ -1,53 +1,63 @@
-# Flow Studio 🎨
+# Joel Flow Studio
 
-ComfyUI 风格的节点式 AI 视频制作与图片生成工作流网站。
+一个以对话为入口的 AI 创作工作台。把文字对话、图片生成、视频生成、参考图和提示词整理到同一个空间里，减少在多个工具之间反复切换。
 
-![node-based workflow](https://img.shields.io/badge/workflow-node--based-4285F4) ![react](https://img.shields.io/badge/React-18-61dafb) ![vite](https://img.shields.io/badge/Vite-5-646cff)
+## 当前产品
 
-## ✨ 功能
+- **对话式创作**：围绕同一个对话持续补充想法，保留上下文和生成记录
+- **图片生成**：支持画幅比例、风格预设、参考图和图片下载
+- **视频生成**：支持文生视频、图生视频和异步任务轮询
+- **多模型选择**：内置可用模型，也支持用户添加兼容 OpenAI 格式的自定义模型
+- **提示词灵感库**：收藏、搜索和复用常用提示词
+- **账户同步**：使用 Supabase 登录后，同步对话、提示词和模型预设
+- **移动端适配**：侧边栏抽屉、底部输入区和触控友好操作
 
-- **节点式交互**：从左侧节点库拖入画布，自由连线组合工作流
-- **API 配置节点**：自定义 Base URL、API Key、模型名与接口路径（兼容 OpenAI 风格接口及各类中转网关）
-- **图片生成节点**：文生图，支持接入参考图集
-- **参考图聚合节点**：最多汇聚 4 张参考图，一并作为图片生成的参考依据
-- **视频处理节点**：文生视频 / 图生视频（自动轮询异步任务）
-- **预览节点**：仅查看结果，不执行任何保存
-- **保存文件节点**：将生成结果下载存储到本地
+## 技术栈
 
-## 🚀 运行
+- React 18 + Vite 5
+- Zustand 状态管理
+- Supabase Auth、Postgres RLS 与 Realtime
+- Cloudflare Pages 部署
+- OpenAI-compatible API 格式
+
+## 本地运行
 
 ```bash
 npm install
 npm run dev
 ```
 
-浏览器会自动打开 `http://localhost:5173`。
+生产构建与结构检查：
 
-## 🔗 典型工作流
-
-```
-API 配置 ──────────────┐
-参考图 ×N → 参考图聚合 → 图片生成 → 预览
-                                  └→ 保存文件
+```bash
+npm run check:ui
+npm run build
 ```
 
-1. 在 **API 配置** 节点填入你的 Base URL 与 API Key
-2. 上传参考图（可选），接入 **参考图聚合**，再连到 **图片生成**
-3. 填写提示词，点击顶部 **▶ 运行工作流**
-4. **预览** 节点查看结果；**保存文件** 节点自动下载
+## 配置
 
-## 🛠 技术栈
+复制 `.env.example`，填写 Supabase 公共配置：
 
-- React 18 + Vite 5
-- [@xyflow/react](https://reactflow.dev/)（React Flow 12）节点画布
-- Zustand 状态管理
-- 深色玻璃拟态 UI，Google 四色点缀
+```bash
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
 
-## 📡 API 兼容性说明
+Supabase 数据表和 RLS 初始化脚本见 `supabase-setup.sql`。登录、注册、GitHub OAuth 和现有账户数据共用当前项目配置，不需要重新建库。
 
-- 图片生成默认 `POST {baseUrl}/v1/images/generations`，请求体 `{ model, prompt, size, n, image? }`
-- 视频生成默认 `POST {baseUrl}/v1/videos/generations`；若返回任务 ID，会每 5 秒轮询直至完成
-- 响应解析兼容 `data[0].url` / `data[0].b64_json` / chat-completions markdown 图片等常见格式
-- 接口路径均可在 API 配置节点内自定义
+## API 兼容
 
-> ⚠️ 若你的 API 服务不允许浏览器跨域（CORS），请使用支持 CORS 的网关，或自行加一层代理。
+自定义模型预设支持兼容 OpenAI 的接口路径，包括：
+
+- `/v1/chat/completions`
+- `/v1/images/generations`
+- `/v1/videos`
+- `/v1/models`
+
+第三方服务必须允许浏览器跨域，或者通过你自己的安全代理转发。不要把真实 API Key 提交到 Git 仓库。
+
+## 部署
+
+项目当前通过 Cloudflare Pages 从 GitHub 的 `main` 分支构建，构建命令为 `npm run build`，输出目录为 `dist`。GitHub Actions 会在 push 和 Pull Request 时执行 UI 检查与生产构建。
+
+线上地址：[flow-studio-bng.pages.dev](https://flow-studio-bng.pages.dev)
